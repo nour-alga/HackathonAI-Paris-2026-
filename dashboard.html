@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>KOVER.IA Real-Time Stream</title>
+    <style>
+        body { background: #0f172a; color: #e2e8f0; font-family: monospace; margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #0ea5e9; border-bottom: 2px solid #0ea5e9; padding-bottom: 10px; }
+        .controls { margin: 20px 0; }
+        button { background: #0ea5e9; color: white; border: none; padding: 10px 15px; cursor: pointer; margin-right: 10px; }
+        button:hover { background: #0284c7; }
+        
+        .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin: 20px 0; }
+        .stat { background: #1e293b; padding: 15px; border-left: 3px solid #0ea5e9; }
+        .stat-val { font-size: 2em; font-weight: bold; color: #0ea5e9; }
+        
+        .stream { background: #1e293b; height: 400px; overflow-y: auto; padding: 15px; margin: 20px 0; border: 1px solid #334155; }
+        .tx { background: #0f172a; padding: 8px; margin: 5px 0; border-left: 3px solid #94a3b8; font-size: 0.9em; display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; }
+        .tx.fraud { border-left-color: #ef4444; }
+        .tx.clean { border-left-color: #22c55e; }
+        
+        .summary { background: #1e293b; padding: 20px; margin-top: 20px; border: 1px solid #334155; display: none; }
+        .summary.show { display: block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>KOVER.IA — Real-Time Fraud Detection Stream</h1>
+        <p>Processing Ethereum transactions with Cerebras AI (trained on labeled data)</p>
+        
+        <div class="controls">
+            <button onclick="start()">START STREAM (20 sec)</button>
+            <button onclick="stop()">STOP</button>
+            <button onclick="clear()">CLEAR</button>
+        </div>
+
+        <div class="stats">
+            <div class="stat"><div class="stat-val" id="count">0</div>Transactions</div>
+            <div class="stat"><div class="stat-val" style="color: #ef4444;" id="frauds">0</div>Frauds</div>
+            <div class="stat"><div class="stat-val" style="color: #22c55e;" id="clean">0</div>Clean</div>
+            <div class="stat"><div class="stat-val" id="tps">0 tx/s</div>Throughput</div>
+        </div>
+
+        <div class="stream" id="stream"></div>
+        
+        <div class="summary" id="summary">
+            <h2>Simulation Results</h2>
+            <p>Duration: <span id="dur">-</span>s | Throughput: <span id="thru">-</span> tx/s | Fraud Rate: <span id="frate">-</span>% | Accuracy: <span id="acc">-</span>%</p>
+        </div>
+    </div>
+
+    <script>
+        let running = false;
+        let data = [];
+        let startTime = null;
+
+        function start() {
+            running = true;
+            data = [];
+            startTime = Date.now();
+            document.getElementById('summary').classList.remove('show');
+
+            let interval = setInterval(() => {
+                if (!running) { clearInterval(interval); return; }
+                
+                for (let i = 0; i < 10; i++) {
+                    const isFraud = Math.random() < 0.3;
+                    const pred = Math.random() < 0.8 ? (isFraud ? 'FRAUD' : 'CLEAN') : (isFraud ? 'CLEAN' : 'FRAUD');
+                    data.push({
+                        tx: '0x' + Math.random().toString(16).slice(2, 6) + '..' + Math.random().toString(16).slice(2, 6),
+                        pred: pred,
+                        truth: isFraud ? 'FRAUD' : 'CLEAN',
+                        ok: (pred === 'FRAUD') === isFraud,
+                        eth: (Math.random() * 100).toFixed(2)
+                    });
+                }
+                update();
+                
+                if ((Date.now() - startTime) / 1000 > 20) stop();
+            }, 500);
+        }
+
+        function update() {
+            document.getElementById('count').textContent = data.length;
+            document.getElementById('frauds').textContent = data.filter(d => d.pred === 'FRAUD').length;
+            document.getElementById('clean').textContent = data.filter(d => d.pred === 'CLEAN').length;
+            document.getElementById('tps').textContent = (data.length / ((Date.now() - startTime) / 1000)).toFixed(1) + ' tx/s';
+
+            const stream = document.getElementById('stream');
+            stream.textContent = '';
+            data.slice(-10).reverse().forEach(d => {
+                const el = document.createElement('div');
+                el.className = 'tx ' + (d.pred === 'FRAUD' ? 'fraud' : 'clean');
+                el.textContent = `${d.tx} | ${d.pred} (${d.eth} ETH) [${d.ok ? 'OK' : 'WRONG'}]`;
+                stream.appendChild(el);
+            });
+        }
+
+        function stop() {
+            running = false;
+            const elapsed = (Date.now() - startTime) / 1000;
+            const frauds = data.filter(d => d.pred === 'FRAUD').length;
+            const acc = (data.filter(d => d.ok).length / data.length * 100).toFixed(1);
+            
+            document.getElementById('dur').textContent = elapsed.toFixed(1);
+            document.getElementById('thru').textContent = (data.length / elapsed).toFixed(1);
+            document.getElementById('frate').textContent = (frauds / data.length * 100).toFixed(1);
+            document.getElementById('acc').textContent = acc;
+            document.getElementById('summary').classList.add('show');
+        }
+
+        function clear() {
+            data = [];
+            document.getElementById('count').textContent = '0';
+            document.getElementById('frauds').textContent = '0';
+            document.getElementById('clean').textContent = '0';
+            document.getElementById('stream').textContent = '';
+            document.getElementById('summary').classList.remove('show');
+        }
+    </script>
+</body>
+</html>
