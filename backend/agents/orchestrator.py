@@ -39,6 +39,7 @@ async def run_agent_pipeline(
         move_sequence=summary["move_sequence"],
         amount_eth=hack_context["amount_eth"],
         protocol=hack_context.get("protocol", "Unknown"),
+        graph=graph,
     )
 
     await broadcast_fn("agent_result", {

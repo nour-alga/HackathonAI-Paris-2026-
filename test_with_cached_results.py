@@ -4,7 +4,7 @@ import json
 
 # Mock agents avec resultats pre-computes (PathPredictor + IncidentReporter)
 
-def mock_predict_path(tainted_count, max_taint_score, move_sequence, amount_eth, protocol):
+def mock_predict_path(tainted_count, max_taint_score, move_sequence, amount_eth, protocol, graph=None):
     return {
         "next_destination": "Tornado Cash Mixing Pool",
         "probability": 0.92,
