@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KOVER.IA - Real-Time Graph Visualization</title>
+    <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+    <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+    <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .top-bar {
+            background: #0f3460;
+            border-bottom: 1px solid #00d4ff;
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .title {
+            font-size: 1.2em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            flex: 1;
+            margin-left: 40px;
+        }
+
+        .stat-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .stat-critical {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+        }
+
+        .stat-clean {
+            background: rgba(0, 255, 136, 0.2);
+            color: #00ff88;
+            border: 1px solid #00ff88;
+        }
+
+        .button {
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            color: #000;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+        }
+
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+
+        #cy {
+            flex: 1;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            position: relative;
+        }
+
+        .right-panel {
+            width: 320px;
+            background: #0f3460;
+            border-left: 1px solid #00d4ff;
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            position: absolute;
+            right: 0;
+            top: 0;
+            height: 100%;
+            z-index: 10;
+            box-shadow: -2px 0 8px rgba(0, 0, 0, 0.4);
+        }
+
+        .right-panel.open {
+            transform: translateX(0);
+        }
+
+        .panel-header {
+            padding: 16px;
+            border-bottom: 1px solid #00d4ff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header h3 {
+            color: #00d4ff;
+            font-size: 1em;
+        }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #00d4ff;
+            cursor: pointer;
+            font-size: 1.2em;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px;
+        }
+
+        .node-detail {
+            margin-bottom: 16px;
+        }
+
+        .detail-label {
+            font-size: 0.8em;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+
+        .detail-value {
+            font-size: 0.95em;
+            color: #fff;
+            font-family: 'Courier New', monospace;
+            word-break: break-all;
+        }
+
+        .score-bar {
+            width: 100%;
+            height: 20px;
+            background: #1a1a2e;
+            border-radius: 2px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+
+        .score-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88 0%, #ffaa00 50%, #ff4444 100%);
+            transition: width 0.3s ease;
+        }
+
+        .panel-actions {
+            padding: 16px;
+            border-top: 1px solid #00d4ff;
+            display: flex;
+            gap: 8px;
+        }
+
+        .event-log {
+            height: 25%;
+            background: #0a0a1a;
+            border-top: 1px solid #00d4ff;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .event-log-header {
+            padding: 8px 12px;
+            background: #0f3460;
+            border-bottom: 1px solid #00d4ff;
+            color: #00d4ff;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .event-entries {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .event-entry {
+            padding: 6px 12px;
+            border-left: 3px solid transparent;
+            color: #aaa;
+        }
+
+        .event-alert {
+            background: rgba(255, 68, 68, 0.1);
+            color: #ff4444;
+            border-left-color: #ff4444;
+        }
+
+        .event-info {
+            background: rgba(0, 212, 255, 0.05);
+            color: #888;
+            border-left-color: #00d4ff;
+        }
+
+        .toast {
+            position: fixed;
+            top: 70px;
+            right: 20px;
+            padding: 12px 20px;
+            background: #ff4444;
+            color: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+            z-index: 100;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(400px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 200;
+        }
+
+        .modal.open {
+            display: flex;
+        }
+
+        .modal-content {
+            background: #0f3460;
+            border: 1px solid #00d4ff;
+            border-radius: 6px;
+            padding: 24px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-title {
+            font-size: 1.2em;
+            color: #ffaa00;
+            margin-bottom: 12px;
+            font-weight: bold;
+        }
+
+        .modal-text {
+            color: #aaa;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .modal-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .btn-yes {
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            color: #000;
+        }
+
+        .btn-yes:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-no {
+            background: #333;
+            color: #aaa;
+        }
+
+        .btn-no:hover {
+            background: #444;
+        }
+
+        .pulsing-node {
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 10px rgba(255, 68, 68, 0);
+            }
+        }
+
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #1a1a2e;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #00d4ff;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <div class="top-bar">
+        <div class="title">KOVER.IA</div>
+        <div class="stats">
+            <div class="stat-badge stat-critical">
+                <span>CRITICAL:</span>
+                <span id="critical-count">0</span>
+            </div>
+            <div class="stat-badge stat-clean">
+                <span>CLEAN:</span>
+                <span id="clean-count">0</span>
+            </div>
+        </div>
+        <button class="button" onclick="loadGraph()">▶ Simulate</button>
+    </div>
+
+    <div class="container">
+        <div id="cy"></div>
+
+        <div class="right-panel" id="rightPanel">
+            <div class="panel-header">
+                <h3>Node Details</h3>
+                <button class="close-btn" onclick="closePanel()">✕</button>
+            </div>
+            <div class="panel-content">
+                <div class="node-detail">
+                    <div class="detail-label">Address</div>
+                    <div class="detail-value" id="detail-address">-</div>
+                </div>
+                <div class="node-detail">
+                    <div class="detail-label">Taint Score</div>
+                    <div id="detail-score-bar">
+                        <div class="score-bar">
+                            <div class="score-fill" id="detail-score-fill" style="width: 0%"></div>
+                        </div>
+                    </div>
+                    <div class="detail-value" id="detail-score">0.00</div>
+                </div>
+                <div class="node-detail">
+                    <div class="detail-label">Type</div>
+                    <div class="detail-value" id="detail-type">-</div>
+                </div>
+                <div class="node-detail">
+                    <div class="detail-label">Total ETH</div>
+                    <div class="detail-value" id="detail-eth">-</div>
+                </div>
+                <div class="node-detail">
+                    <div class="detail-label">Transactions</div>
+                    <div class="detail-value" id="detail-txs">-</div>
+                </div>
+            </div>
+            <div class="panel-actions">
+                <button class="button" onclick="triggerPipeline()" style="flex: 1;">Investigate</button>
+            </div>
+        </div>
+
+        <div class="event-log">
+            <div class="event-log-header">Event Log (Real-time)</div>
+            <div class="event-entries" id="eventEntries"></div>
+        </div>
+    </div>
+
+    <script>
+        let cy;
+        let currentNode = null;
+
+        // Initialize Cytoscape
+        function initGraph() {
+            cy = cytoscape({
+                container: document.getElementById('cy'),
+                style: [
+                    {
+                        selector: 'node',
+                        style: {
+                            'content': 'data(label)',
+                            'text-valign': 'center',
+                            'text-halign': 'center',
+                            'font-size': 10,
+                            'color': '#fff',
+                            'border-width': 2,
+                            'border-color': 'data(borderColor)',
+                            'background-color': 'data(color)',
+                            'width': 'data(size)',
+                            'height': 'data(size)',
+                            'padding': 2
+                        }
+                    },
+                    {
+                        selector: 'edge',
+                        style: {
+                            'line-color': '#00d4ff',
+                            'width': 'data(width)',
+                            'opacity': 0.5,
+                            'curve-style': 'straight',
+                            'arrow-scale': 1.5,
+                            'target-arrow-shape': 'triangle',
+                            'target-arrow-color': '#00d4ff'
+                        }
+                    }
+                ],
+                layout: {
+                    name: 'dagre',
+                    rankDir: 'LR',
+                    nodeSep: 60,
+                    rankSep: 120,
+                    animate: false,
+                    padding: 40
+                }
+            });
+
+            cy.on('tap', 'node', function(evt) {
+                const node = evt.target;
+                showNodeDetails(node);
+            });
+
+            cy.on('tap', function(evt) {
+                if (evt.target === cy) {
+                    closePanel();
+                }
+            });
+        }
+
+        // Load graph from API
+        async function loadGraph() {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/transactions');
+                const data = await response.json();
+
+                updateCounts(data.stats);
+                renderGraph(data);
+                addEvent('INFO', `Graph loaded: ${data.stats.total_nodes} nodes, ${data.stats.total_edges} edges`);
+                checkAlerts(data.nodes);
+
+            } catch (e) {
+                showToast('Failed to load graph', 'alert');
+                addEvent('ERROR', `Failed to load graph: ${e.message}`);
+            }
+        }
+
+        // Update top bar counts
+        function updateCounts(stats) {
+            document.getElementById('critical-count').textContent = stats.critical_count;
+            document.getElementById('clean-count').textContent = stats.clean_count;
+        }
+
+        // Render graph with Cytoscape
+        function renderGraph(data) {
+            const elements = [];
+
+            // Add nodes
+            data.nodes.forEach(node => {
+                const score = node.taint_score;
+                let color, size, borderColor;
+
+                if (score > 0.75) {
+                    color = '#ff4444';
+                    borderColor = '#ff0000';
+                    size = 40;
+                } else if (score > 0.5) {
+                    color = '#ffaa00';
+                    borderColor = '#ff9900';
+                    size = 30;
+                } else if (score > 0.2) {
+                    color = '#ffdd44';
+                    borderColor = '#ffcc00';
+                    size = 22;
+                } else {
+                    color = '#00ff88';
+                    borderColor = '#00dd77';
+                    size = 16;
+                }
+
+                elements.push({
+                    data: {
+                        id: node.id,
+                        label: `${score.toFixed(2)}\n${node.label}`,
+                        score: score,
+                        type: node.entity_type,
+                        total_eth: node.total_eth,
+                        tx_count: node.tx_count,
+                        color: color,
+                        size: size,
+                        borderColor: borderColor,
+                        isHackSource: node.from_scam === 1
+                    }
+                });
+            });
+
+            // Add edges
+            data.edges.forEach(edge => {
+                const width = Math.min(5, Math.max(1, edge.amount_eth / 10));
+                elements.push({
+                    data: {
+                        id: edge.id,
+                        source: edge.source,
+                        target: edge.target,
+                        width: width,
+                        amount: edge.amount_eth
+                    }
+                });
+            });
+
+            cy.elements().remove();
+            cy.add(elements);
+            cy.layout({
+                name: 'dagre',
+                rankDir: 'LR',
+                nodeSep: 60,
+                rankSep: 120,
+                animate: false,
+                padding: 40
+            }).run();
+        }
+
+        // Check for alerts
+        function checkAlerts(nodes) {
+            nodes.forEach(node => {
+                if (node.taint_score > 0.75) {
+                    addEvent('ALERT', `${node.label} - taint=${node.taint_score.toFixed(2)} - Pipeline auto-triggered`);
+                    triggerPipelineAuto(node);
+                } else if (node.taint_score > 0.5) {
+                    addEvent('WARN', `${node.label} - taint=${node.taint_score.toFixed(2)} - Requires confirmation`);
+                }
+            });
+        }
+
+        // Show node details panel
+        function showNodeDetails(node) {
+            currentNode = node;
+            const score = node.data('score');
+            const scorePercent = score * 100;
+
+            document.getElementById('detail-address').textContent = node.data('id');
+            document.getElementById('detail-score').textContent = score.toFixed(2);
+            document.getElementById('detail-score-fill').style.width = scorePercent + '%';
+            document.getElementById('detail-type').textContent = node.data('type');
+            document.getElementById('detail-eth').textContent = node.data('total_eth').toFixed(4) + ' ETH';
+            document.getElementById('detail-txs').textContent = node.data('tx_count');
+
+            document.getElementById('rightPanel').classList.add('open');
+        }
+
+        // Close right panel
+        function closePanel() {
+            document.getElementById('rightPanel').classList.remove('open');
+            currentNode = null;
+        }
+
+        // Trigger pipeline automatically
+        async function triggerPipelineAuto(node) {
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/pipeline', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        address: node.id,
+                        amount_eth: node.total_eth
+                    })
+                });
+                const result = await response.json();
+                showToast(`ALERT: ${result.severity} severity detected!`, 'alert');
+            } catch (e) {
+                addEvent('ERROR', `Pipeline failed: ${e.message}`);
+            }
+        }
+
+        // Trigger pipeline from button
+        async function triggerPipeline() {
+            if (!currentNode) return;
+
+            try {
+                const response = await fetch('http://127.0.0.1:5000/api/pipeline', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        address: currentNode.data('id'),
+                        amount_eth: currentNode.data('total_eth')
+                    })
+                });
+                const result = await response.json();
+
+                // Show result in panel
+                const narrative = result.narrative.substring(0, 300) + '...';
+                document.querySelector('.panel-content').innerHTML += `
+                    <div class="node-detail" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #00d4ff;">
+                        <div class="detail-label">Pipeline Result</div>
+                        <div class="detail-value" style="color: ${result.severity === 'CRITICAL' ? '#ff4444' : '#ffaa00'}">${result.severity}</div>
+                        <div class="detail-value" style="font-size: 0.8em; color: #888; margin-top: 8px;">${narrative}</div>
+                    </div>
+                `;
+
+                addEvent('INFO', `Pipeline triggered for ${currentNode.data('label')} - ${result.severity}`);
+                showToast(`Investigation triggered: ${result.severity}`, 'info');
+
+            } catch (e) {
+                addEvent('ERROR', `Pipeline failed: ${e.message}`);
+            }
+        }
+
+        // Event log
+        function addEvent(type, message) {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `event-entry event-${type.toLowerCase()}`;
+            entry.textContent = `[${time}] ${type.padEnd(8)} ${message}`;
+
+            const container = document.getElementById('eventEntries');
+            container.insertBefore(entry, container.firstChild);
+
+            // Limit to 50 entries
+            while (container.children.length > 50) {
+                container.removeChild(container.lastChild);
+            }
+        }
+
+        // Toast notification
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type === 'alert' ? 'alert' : type === 'warning' ? 'warning' : ''}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.remove();
+            }, 5000);
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            initGraph();
+            loadGraph();
+            addEvent('INFO', 'KOVER.IA graph visualization started');
+        });
+    </script>
+</body>
+</html>
