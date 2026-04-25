@@ -2,35 +2,7 @@
 import asyncio
 import json
 
-# Mock agents avec resultats pre-computes
-def mock_analyze_taint(wallets, source_address, amount_eth):
-    return {
-        "0xb2698c2d99ad2c302a95a8db26b08d17a77cedd4": {
-            "taint_score": 1.0,
-            "flags": ["source", "high_amount"],
-            "reasoning": "Source address of Euler hack"
-        },
-        "0x1111111111111111111111111111111111111111": {
-            "taint_score": 0.85,
-            "flags": ["split", "consolidation"],
-            "reasoning": "Received 20k ETH from source, suspicious split"
-        },
-        "0x722122df12d4e14e13ac3b6895a86e84145b6967": {
-            "taint_score": 0.92,
-            "flags": ["tornado_cash", "high_risk"],
-            "reasoning": "Tornado Cash mixer - definite obfuscation attempt"
-        },
-        "0x2222222222222222222222222222222222222222": {
-            "taint_score": 0.78,
-            "flags": ["bridge", "crosschain"],
-            "reasoning": "Bridge deposit from source, attempting chain escape"
-        },
-        "0x3ee18b2214aff97000d974cf647e7c347e8fa585": {
-            "taint_score": 0.88,
-            "flags": ["wormhole", "bridge_crosschain"],
-            "reasoning": "Wormhole bridge - cross-chain movement detected"
-        }
-    }
+# Mock agents avec resultats pre-computes (PathPredictor + IncidentReporter)
 
 def mock_predict_path(tainted_count, max_taint_score, move_sequence, amount_eth, protocol):
     return {
@@ -101,10 +73,8 @@ sys.modules['supabase'] = type(sys)('supabase')
 sys.modules['google.cloud'] = type(sys)('google.cloud')
 sys.modules['google.cloud.bigquery'] = type(sys)('google.cloud.bigquery')
 
-import backend.agents.taint_agent as ta
 import backend.agents.path_agent as pa
 import backend.agents.reporter_agent as ra
-ta.analyze_taint = mock_analyze_taint
 pa.predict_path = mock_predict_path
 ra.generate_report = mock_generate_report
 

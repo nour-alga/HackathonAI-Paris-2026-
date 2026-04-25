@@ -99,7 +99,7 @@ async def main():
     print(f"    OK Movement: {' -> '.join(summary['move_sequence'])}")
 
     print("\n[2] Starting multi-agent pipeline...")
-    print("    (TaintAnalyst -> PathPredictor -> IncidentReporter)")
+    print("    (TaintGraph -> PathPredictor -> IncidentReporter)")
 
     hack_context = {
         "protocol": "Euler Finance",

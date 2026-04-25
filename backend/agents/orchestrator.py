@@ -1,9 +1,8 @@
-"""Orchestrator — coordonne les 3 agents (TaintAnalyst, PathPredictor, IncidentReporter)."""
+"""Orchestrator — coordonne 2 agents (PathPredictor, IncidentReporter). Taint scores viennent du TaintGraph."""
 import asyncio
 import json
 from typing import Callable, Optional
 
-from backend.agents.taint_agent import analyze_taint
 from backend.agents.path_agent import predict_path
 from backend.agents.reporter_agent import generate_report
 from backend.storage.models import TaintedWallet
@@ -15,53 +14,25 @@ async def run_agent_pipeline(
     broadcast_fn: Optional[Callable] = None,
 ) -> dict:
     """
-    Lance le pipeline multi-agent complet.
+    Lance le pipeline agent optimisé (2 agents).
 
     Args:
-        graph: TaintGraph construit par build_taint_graph()
+        graph: TaintGraph construit par build_taint_graph() (scores déjà calculés)
         hack_context: {protocol, amount_usd, amount_eth, minutes_elapsed}
         broadcast_fn: fonction broadcast WebSocket (async)
 
     Returns:
-        {
-            severity, summary, narrative,
-            taint_analysis, path_prediction,
-            graph_summary, tainted_wallets
-        }
+        {severity, summary, narrative, path_prediction, graph_summary, tainted_wallets}
     """
     if broadcast_fn is None:
         broadcast_fn = lambda event, data: None
 
-    # ─── AGENT 1 : TaintAnalyst ──────────────────────────────────
-    await broadcast_fn("pipeline_status", {"step": "taint_analysis", "agent": "TaintAnalyst"})
+    # Taint scores viennent du TaintGraph (déjà calculés par BFS)
+    summary = graph.summary()
 
-    wallets_for_analysis = [
-        {
-            "address": addr,
-            "amount_eth": node.amount_received_eth,
-            "hops": node.hops,
-            "entity_type": node.entity_type,
-        }
-        for addr, node in list(graph.nodes.items())[:20]
-    ]
-
-    taint_analysis = analyze_taint(
-        wallets=wallets_for_analysis,
-        source_address=graph.source,
-        amount_eth=hack_context["amount_eth"],
-    )
-
-    # Mettre à jour les scores du graphe avec les résultats de l'agent
-    for addr, result in taint_analysis.items():
-        if addr in graph.nodes:
-            graph.nodes[addr].taint_score = result.get("taint_score", 0.3)
-
-    await broadcast_fn("agent_result", {"agent": "TaintAnalyst", "wallets_analyzed": len(taint_analysis)})
-
-    # ─── AGENT 2 : PathPredictor ──────────────────────────────────
+    # ─── AGENT 1 : PathPredictor ──────────────────────────────────
     await broadcast_fn("pipeline_status", {"step": "path_prediction", "agent": "PathPredictor"})
 
-    summary = graph.summary()
     path_prediction = predict_path(
         tainted_count=summary["tainted_count"],
         max_taint_score=summary["max_taint_score"],
@@ -76,18 +47,24 @@ async def run_agent_pipeline(
         "probability": path_prediction.get("probability"),
     })
 
-    # ─── AGENT 3 : IncidentReporter ──────────────────────────────
+    # ─── AGENT 2 : IncidentReporter ──────────────────────────────
     await broadcast_fn("pipeline_status", {"step": "generating_narrative", "agent": "IncidentReporter"})
 
-    hack_context_for_report = {
-        **hack_context,
-        "tainted_count": summary["tainted_count"],
+    # Extraire les scores du graphe pour le rapport
+    tainted_wallets = graph.get_tainted_wallets()
+    taint_analysis = {
+        node.address: {
+            "taint_score": node.taint_score,
+            "hops": node.hops,
+            "type": node.entity_type,
+        }
+        for node in tainted_wallets[:20]
     }
 
     narrative = generate_report(
         taint_analysis=taint_analysis,
         path_prediction=path_prediction,
-        hack_context=hack_context_for_report,
+        hack_context=hack_context,
     )
 
     await broadcast_fn("agent_result", {"agent": "IncidentReporter", "report_length": len(narrative)})
@@ -106,18 +83,15 @@ async def run_agent_pipeline(
         severity = "LOW"
 
     # ─── Build Result ────────────────────────────────────────────
-    tainted_list = graph.get_tainted_wallets()
-
     result = {
         "severity": severity,
         "summary": f"{severity} — {summary['tainted_count']} wallets taintés, destination probable : {path_prediction.get('next_destination')}",
         "narrative": narrative,
-        "taint_analysis": taint_analysis,
         "path_prediction": path_prediction,
         "graph_summary": summary,
         "tainted_wallets": [
             {"address": n.address, "score": n.taint_score, "type": n.entity_type}
-            for n in tainted_list[:20]
+            for n in tainted_wallets[:20]
         ],
     }
 

@@ -15,10 +15,6 @@ class MockBigQuery:
         print(f"[BigQuery] Saved {len(wallets)} tainted wallets")
         return len(wallets)
 
-class MockDiscord:
-    async def send_alert(self, severity, summary, details, tx_hash):
-        print(f"[Discord] ALERT [{severity}]: {summary}")
-
 class MockWebSocket:
     async def broadcast(self, event, data):
         print(f"[WebSocket] {event}: {data}")
@@ -33,9 +29,6 @@ sys.modules['google.cloud.bigquery'] = type(sys)('google.cloud.bigquery')
 import backend.storage.bigquery_client as bq_client
 bq_client.save_incident = MockBigQuery().save_incident
 bq_client.save_tainted_wallets = MockBigQuery().save_tainted_wallets
-
-import backend.alerting.discord as discord_client
-discord_client.send_alert = MockDiscord().send_alert
 
 # Now import the pipeline
 from backend.pipeline import run_pipeline

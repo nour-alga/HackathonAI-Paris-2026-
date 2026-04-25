@@ -64,16 +64,9 @@ def build_test_graph():
     return graph
 
 async def test_agents():
-    """Test: All 3 agents can be imported and function correctly."""
+    """Test: Both agents can be imported and function correctly."""
     print("\n[TEST 1] Agent Imports")
     print("=" * 70)
-    try:
-        from backend.agents.taint_agent import analyze_taint
-        print("  OK - TaintAnalyst imported")
-    except Exception as e:
-        print(f"  FAIL - TaintAnalyst: {e}")
-        return False
-
     try:
         from backend.agents.path_agent import predict_path
         print("  OK - PathPredictor imported")
