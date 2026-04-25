@@ -63,7 +63,7 @@ Génère un rapport d'incident structuré avec :
 
     report = ""
     stream = client.chat.completions.create(
-        model="llama3.1-70b",
+        model="qwen-3-235b-a22b-instruct-2507",
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt},

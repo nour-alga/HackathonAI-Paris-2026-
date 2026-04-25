@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 
 from backend.websocket.manager import manager
 from backend.pipeline import run_pipeline
-from backend.storage.supabase_client import get_recent_incidents
+from backend.storage.bigquery_client import get_recent_incidents
 
 load_dotenv()
 

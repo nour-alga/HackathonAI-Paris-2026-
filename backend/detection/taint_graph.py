@@ -18,9 +18,6 @@ from datetime import datetime
 
 import httpx
 import networkx as nx
-import torch
-
-from backend.models.gat.predict import score_graph
 
 ETHERSCAN_API = "https://api.etherscan.io/api"
 ETHERSCAN_KEY = os.getenv("ETHERSCAN_API_KEY", "")
@@ -133,29 +130,11 @@ class TaintGraph:
 
         return child_taint
 
-    def run_gat_scoring(self):
-        """Lance l'inférence GAT sur le graphe courant et met à jour les scores."""
-        if len(self.nodes) < 2:
-            # Pas assez de nœuds pour le GAT
-            for addr, node in self.nodes.items():
-                node.taint_score = node.taint_raw
-            return
-
-        # Ajouter les features comme tensor au graphe NetworkX
+    def initialize_taint_scores(self):
+        """Initialise les scores de taint avec les valeurs brutes (raw propagation).
+        Les agents (TaintAnalyst) affineront ces scores avec Cerebras."""
         for addr, node in self.nodes.items():
-            self.graph.nodes[addr]["x"] = torch.tensor(
-                self._compute_node_features(node), dtype=torch.float
-            )
-
-        try:
-            gat_scores = score_graph(self.graph)
-            for addr, score in gat_scores.items():
-                if addr in self.nodes:
-                    self.nodes[addr].taint_score = score
-        except Exception:
-            # Si le modèle n'est pas encore entraîné, fallback sur taint_raw
-            for addr, node in self.nodes.items():
-                node.taint_score = node.taint_raw
+            node.taint_score = node.taint_raw
 
     def get_tainted_wallets(self) -> list[WalletNode]:
         """Retourne les wallets avec un score > TAINT_THRESHOLD, triés par score."""
@@ -247,7 +226,7 @@ async def build_taint_graph(
                 explored.add(dst)
                 to_explore.append((dst, child_taint, hop + 1))
 
-    # Scoring GAT sur le graphe complet
-    graph.run_gat_scoring()
+    # Initialiser les scores avec propagation brute (agents raffineront via Cerebras)
+    graph.initialize_taint_scores()
 
     return graph
