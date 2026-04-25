@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c ' *)",
+      "Bash(pkill -f \"uvicorn main:app\")",
+      "Bash(uvicorn main:app --reload --port 8000)",
+      "Bash(curl -s http://localhost:8000/api/euler/transactions)",
+      "PowerShell(Get-NetTCPConnection -LocalPort 8000 -State Listen -ErrorAction SilentlyContinue)",
+      "Bash(uvicorn main:app --port 8001)",
+      "Bash(python fetch_euler.py)"
+    ]
+  }
+}
