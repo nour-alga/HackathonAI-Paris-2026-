@@ -1,0 +1,22 @@
+# Secrets
+.env
+backend/.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+
+# Data cache (peut contenir des clés ou données sensibles)
+data/euler_cache.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
