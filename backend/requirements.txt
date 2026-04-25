@@ -1,0 +1,35 @@
+# API
+fastapi==0.115.0
+uvicorn[standard]==0.30.6
+python-dotenv==1.0.1
+pydantic==2.8.2
+httpx==0.27.2
+
+# Blockchain
+websockets==13.0
+web3==7.2.0
+
+# ML — GAT
+torch==2.4.1
+torch-geometric==2.6.1
+networkx==3.3
+
+# ML — LSTM
+# (inclus dans torch)
+
+# ML — Features & Training
+scikit-learn==1.5.2
+xgboost==2.1.1
+numpy==1.26.4
+pandas==2.2.3
+
+# Data
+google-cloud-bigquery==3.25.0
+pyarrow==17.0.0
+
+# Narrative (Llama sur Cerebras)
+cerebras-cloud-sdk==1.9.0
+
+# Storage & Alertes
+supabase==2.7.4
+resend==2.4.0
