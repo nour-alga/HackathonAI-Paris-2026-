@@ -28,7 +28,8 @@ jobs:
           # Deps minimales pour les tests : pas besoin de torch/cerebras vu
           # qu'on mocke run_agent_pipeline et qu'on ne charge pas les .pt.
           pip install fastapi==0.136.1 pydantic httpx websockets networkx \
-                      python-dotenv pytest pytest-asyncio pytest-cov
+                      python-dotenv cerebras-cloud-sdk \
+                      pytest pytest-asyncio pytest-cov
 
       - name: Run tests with coverage
         run: pytest
