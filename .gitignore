@@ -36,3 +36,6 @@ node_modules/
 # OS
 .DS_Store
 Thumbs.db
+# Track trained model weights
+!gat_model.pt
+!backend/models/path_lstm.pt

@@ -5,17 +5,15 @@ Serves interactive graph UI with real-time alerts and manual pipeline triggering
 import http.server
 import socketserver
 import json
-import csv
 import random
-import os
 from pathlib import Path
-from collections import defaultdict, deque
+from collections import defaultdict
 from datetime import datetime
 from urllib.parse import urlparse, parse_qs
+from gat_scorer import score_nodes
 
 PORT = 5000
 BASE_DIR = Path(__file__).parent
-CSV_PATH = BASE_DIR / 'salam_ammari_dataset' / 'Dataset' / 'Dataset.csv'
 
 class GraphHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
@@ -131,7 +129,7 @@ class GraphHandler(http.server.SimpleHTTPRequestHandler):
 
                 # Add edge
                 edges.append({
-                    'id': f'tx_{tx_hash[:16]}',
+                    'id': f'edge_{len(edges)}',
                     'source': from_addr,
                     'target': to_addr,
                     'amount_eth': amount_eth,
@@ -139,51 +137,11 @@ class GraphHandler(http.server.SimpleHTTPRequestHandler):
                     'timestamp': tx.get('block_timestamp', '')
                 })
 
-            # BFS distance-based taint propagation
-            # Taint score = 1.0 / (1 + hops_from_source)
-            # Seed: nodes where from_scam=1 are hops=0
-            hops_from_source = defaultdict(lambda: float('inf'))
-            fraud_sources = [addr for addr, node in nodes_dict.items() if node['from_scam'] == 1]
+            # GAT scoring — learned fraud probabilities from trained model
+            gat_scores = score_nodes(nodes_dict, edges)
 
-            for source in fraud_sources:
-                hops_from_source[source] = 0
-
-            # BFS from fraud sources (distance-based, not amount-based)
-            visited = set()
-            queue = deque(fraud_sources)
-
-            while queue:
-                current = queue.popleft()
-                if current in visited:
-                    continue
-                visited.add(current)
-
-                current_hops = hops_from_source[current]
-
-                # Find outgoing edges
-                for edge in edges:
-                    if edge['source'] == current:
-                        target = edge['target']
-                        if target not in visited:
-                            new_hops = current_hops + 1
-                            if new_hops < hops_from_source[target]:
-                                hops_from_source[target] = new_hops
-                                queue.append(target)
-
-            # Assign taint scores based on distance (very slow decay for better distribution)
-            taint_scores = {}
-            for addr in nodes_dict.keys():
-                hops = hops_from_source[addr]
-                if hops == float('inf'):
-                    taint_scores[addr] = 0.0  # Not reachable from fraud source
-                else:
-                    # Very slow decay: 1.0 / (1 + 0.15*hops)
-                    # Hops 0: 1.0, Hops 1: 0.87, Hops 2: 0.77, Hops 3: 0.69, Hops 4: 0.63, Hops 5: 0.57, Hops 6: 0.53, Hops 7: 0.49
-                    taint_scores[addr] = 1.0 / (1.0 + 0.15 * hops)
-
-            # Assign taint scores to nodes
             for addr, node in nodes_dict.items():
-                node['taint_score'] = taint_scores.get(addr, 0.0)
+                node['taint_score'] = gat_scores.get(addr, 0.0)
 
             # Count alerts (simplified: CRITICAL or CLEAN only)
             critical_count = sum(1 for node in nodes_dict.values() if node['taint_score'] > 0.75)
