@@ -10,6 +10,8 @@ from dotenv import load_dotenv
 
 from backend.websocket.manager import manager
 from backend.pipeline import run_pipeline, run_pipeline_from_graph
+from backend.streaming import generator as ai_stream
+from backend.streaming import proof as ai_proof
 from backend.storage.bigquery_client import get_recent_incidents
 
 load_dotenv()
@@ -88,6 +90,35 @@ class AnalyzeGraphRequest(BaseModel):
     seed_address: str | None = None
     amount_eth: float | None = None
     protocol_name: str = "Simulated Stream"
+
+
+# ─── AI Stream + provenance ──────────────────────────────────────────────────
+
+@app.post("/stream/start")
+async def stream_start():
+    return await ai_stream.start()
+
+
+@app.post("/stream/stop")
+async def stream_stop():
+    return await ai_stream.stop()
+
+
+@app.post("/stream/reset")
+async def stream_reset():
+    return await ai_stream.reset()
+
+
+@app.get("/stream/stats")
+async def stream_stats():
+    return ai_stream.stats()
+
+
+@app.get("/ai/proof")
+async def ai_proof_endpoint():
+    """Manifest signé HMAC : checksums modèles, métadonnées training, log
+    d'inférences. Le jury peut vérifier la signature."""
+    return ai_proof.build_manifest()
 
 
 # ─── Flashloan dashboard launcher (kover-bfd-mev) ────────────────────────────

@@ -85,8 +85,8 @@ export const ForceGraph = ({ nodes, links, scanning, onInspectNode, onInspectLin
   useEffect(() => {
     const fg = fgRef.current;
     if (!fg) return;
-    fg.d3Force("charge")?.strength(-90);
-    fg.d3Force("link")?.distance(70);
+    fg.d3Force("charge")?.strength(-260);
+    fg.d3Force("link")?.distance(110);
     const colW = Math.max(140, size.w / 7);
     fg.d3Force(
       "x",
@@ -98,7 +98,14 @@ export const ForceGraph = ({ nodes, links, scanning, onInspectNode, onInspectLin
     fg.d3ReheatSimulation();
   }, [size.w]);
 
-  const data = { nodes: nodes as any, links: links as any };
+  // Stabiliser la prop graphData : sinon react-force-graph reset la simulation
+  // d3 à chaque parent re-render. On ne change la ref que si la liste a vraiment
+  // changé (taille différente ou ids différents).
+  const data = useMemo(() => ({ nodes: nodes as any, links: links as any }), [
+    nodes.length,
+    links.length,
+    nodes.map((n: any) => n.id).join(","),
+  ]);
 
   const linkKeyOf = (l: any) => {
     const sId = typeof l.source === "object" ? l.source.id : l.source;

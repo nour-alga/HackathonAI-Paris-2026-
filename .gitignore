@@ -28,6 +28,12 @@ frontend/.env.local
 *.log
 ia/kover-bfd-mev/flashloan.log
 
+# Test artifacts
+htmlcov/
+.coverage
+coverage.xml
+.pytest_cache/
+
 # Datasets (lourds — télécharger manuellement)
 salam_ammari_dataset/Dataset/Dataset.csv
 

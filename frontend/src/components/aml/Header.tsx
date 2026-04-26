@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import type { PipelineStep } from "@/hooks/useBackendStream";
 
 type Props = {
@@ -31,6 +32,20 @@ export const Header = ({
   backendConnected,
   pipelineStep,
 }: Props) => {
+  const [resetting, setResetting] = useState(false);
+  const lastResetMs = useRef(0);
+  const handleReset = async () => {
+    const now = Date.now();
+    if (resetting || now - lastResetMs.current < 2000) return;
+    lastResetMs.current = now;
+    setResetting(true);
+    try {
+      const base = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? "http://localhost:8000";
+      await fetch(`${base}/stream/reset`, { method: "POST" });
+    } finally {
+      setTimeout(() => setResetting(false), 1500);
+    }
+  };
   const stats = [
     { label: "VOLUME_TRACKED", value: `${liveVolume.toFixed(2)} ETH` },
     { label: "TX_OBSERVED", value: liveCount.toLocaleString() },
@@ -117,14 +132,22 @@ export const Header = ({
         <button
           onClick={onToggleLiveMode}
           aria-pressed={liveMode}
-          title={liveMode ? "Basculer en mode démo (mock seul)" : "Activer l'analyse IA temps réel"}
+          title={liveMode ? "Mettre en pause le stream" : "Démarrer le stream IA temps réel"}
           className={`font-mono text-[10px] uppercase tracking-[0.14em] border px-3 py-1.5 transition-colors ${
             liveMode
               ? "border-success bg-success text-background hover:opacity-90"
               : "border-foreground text-foreground hover:bg-foreground hover:text-background"
           }`}
         >
-          {liveMode ? "● LIVE_AI" : "○ DEMO_MODE"}
+          {liveMode ? "● LIVE_AI" : "○ STOPPED"}
+        </button>
+        <button
+          onClick={handleReset}
+          disabled={resetting}
+          title="Vide le graph et redémarre. Debounced 2s."
+          className="font-mono text-[10px] uppercase tracking-[0.14em] border border-foreground text-foreground hover:bg-foreground hover:text-background px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {resetting ? "↻ RESETTING…" : "↻ RESET"}
         </button>
         <button
           onClick={onTogglePause}

@@ -1,0 +1,49 @@
+name: Tests + SonarCloud
+
+on:
+  push:
+    branches: [main, demo/**, feat/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test-and-analyze:
+    name: pytest + coverage + SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # SonarCloud a besoin de l'historique git complet
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install backend dependencies (lite)
+        run: |
+          python -m pip install --upgrade pip
+          # Deps minimales pour les tests : pas besoin de torch/cerebras vu
+          # qu'on mocke run_agent_pipeline et qu'on ne charge pas les .pt.
+          pip install fastapi==0.136.1 pydantic httpx websockets networkx \
+                      python-dotenv pytest pytest-asyncio pytest-cov
+
+      - name: Run tests with coverage
+        run: pytest
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Upload coverage artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: |
+            coverage.xml
+            htmlcov/
+          retention-days: 7
