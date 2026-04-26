@@ -4,8 +4,13 @@ import os
 from pathlib import Path
 from typing import Any
 
-# Import paresseux : permet au module d'être importable en CI/test sans le
-# SDK Cerebras. Le client est instancié au premier appel uniquement.
+# Cerebras SDK est optionnel : si absent (CI / dev sans la lib), le module
+# reste importable. Le client est instancié paresseusement.
+try:  # pragma: no cover
+    from cerebras.cloud.sdk import Cerebras as _CerebrasClient  # type: ignore
+except Exception:  # pragma: no cover
+    _CerebrasClient = None  # type: ignore
+
 _client: Any = None
 _FEW_SHOT_PATH = Path(__file__).resolve().parent / "few_shot_examples.json"
 _few_shot_cache: list[dict] | None = None
@@ -16,8 +21,9 @@ DEFAULT_MODEL = "qwen-3-235b-a22b-instruct-2507"
 def get_client() -> Any:
     global _client
     if _client is None:
-        from cerebras.cloud.sdk import Cerebras  # noqa: PLC0415
-        _client = Cerebras(api_key=os.getenv("CEREBRAS_API_KEY"))
+        if _CerebrasClient is None:
+            raise RuntimeError("cerebras-cloud-sdk not installed")
+        _client = _CerebrasClient(api_key=os.getenv("CEREBRAS_API_KEY"))
     return _client
 
 

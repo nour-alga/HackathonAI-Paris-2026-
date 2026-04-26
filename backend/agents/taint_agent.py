@@ -1,15 +1,22 @@
 """Agent 1 — TaintAnalyst : détecte et score les wallets taintés."""
 import json
 import os
-from cerebras.cloud.sdk import Cerebras
+from typing import Any
 
-_client: Cerebras | None = None
+try:  # pragma: no cover
+    from cerebras.cloud.sdk import Cerebras as _CerebrasClient  # type: ignore
+except Exception:  # pragma: no cover
+    _CerebrasClient = None  # type: ignore
+
+_client: Any = None
 
 
-def get_client() -> Cerebras:
+def get_client() -> Any:
     global _client
     if _client is None:
-        _client = Cerebras(api_key=os.getenv("CEREBRAS_API_KEY"))
+        if _CerebrasClient is None:
+            raise RuntimeError("cerebras-cloud-sdk not installed")
+        _client = _CerebrasClient(api_key=os.getenv("CEREBRAS_API_KEY"))
     return _client
 
 
