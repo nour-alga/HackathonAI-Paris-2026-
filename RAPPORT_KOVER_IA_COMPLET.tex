@@ -1,0 +1,514 @@
+\documentclass[11pt,a4paper]{article}
+
+% --- Encoding & language ---------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% --- Layout ----------------------------------------------------------------
+\usepackage[a4paper, top=2.4cm, bottom=2.4cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+
+% --- Visuals ---------------------------------------------------------------
+\usepackage{xcolor}
+\definecolor{kvink}{RGB}{12,18,28}
+\definecolor{kvgold}{RGB}{196,142,42}
+\definecolor{kvalert}{RGB}{226,58,58}
+\definecolor{kvgreen}{RGB}{63,163,108}
+\definecolor{kvgrey}{RGB}{120,128,140}
+\definecolor{kvbg}{RGB}{246,246,242}
+
+\usepackage{titlesec}
+\titleformat{\section}
+  {\color{kvink}\Large\bfseries\sffamily}
+  {\thesection.}{0.6em}{}
+\titleformat{\subsection}
+  {\color{kvink}\large\bfseries\sffamily}
+  {\thesubsection}{0.6em}{}
+\titleformat{\subsubsection}
+  {\color{kvgold}\normalsize\bfseries\sffamily}
+  {}{0pt}{}
+
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\renewcommand{\arraystretch}{1.25}
+
+\usepackage{enumitem}
+\setlist{leftmargin=1.4em, itemsep=2pt, topsep=3pt}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\sffamily\color{kvink}\textbf{KOVER.IA}}
+\fancyhead[R]{\sffamily\color{kvgrey}\small Hackathon AI Paris~2026}
+\fancyfoot[C]{\sffamily\color{kvgrey}\small \thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\usepackage{tcolorbox}
+\tcbuselibrary{skins,breakable}
+\newtcolorbox{insight}[1][]{
+  enhanced, breakable, colback=kvbg, colframe=kvink,
+  boxrule=0.5pt, arc=2pt, left=10pt, right=10pt, top=8pt, bottom=8pt,
+  fontupper=\sffamily\small, #1
+}
+\newtcolorbox{quote_kv}[1][]{
+  enhanced, colback=white, colframe=kvgold,
+  boxrule=1pt, arc=0pt, left=14pt, right=14pt, top=10pt, bottom=10pt,
+  borderline west={3pt}{0pt}{kvgold},
+  fontupper=\itshape, #1
+}
+
+\usepackage[hidelinks]{hyperref}
+
+% ===========================================================================
+\begin{document}
+
+\begin{titlepage}
+\centering
+\vspace*{2.5cm}
+{\sffamily\Huge\bfseries\color{kvink} KOVER.IA}\\[0.2cm]
+{\sffamily\Large\color{kvgold} \rule{4cm}{1pt}}\\[0.4cm]
+{\sffamily\LARGE\bfseries Rapport projet complet}\\[0.6cm]
+{\sffamily\large\color{kvgrey} Problématique, solution, architecture,\\[0.1cm]
+positionnement et stratégie de commercialisation}\\[3.2cm]
+
+\begin{tcolorbox}[
+  enhanced, colback=kvbg, colframe=kvink,
+  boxrule=0.5pt, arc=2pt, width=12cm,
+  left=12pt, right=12pt, top=10pt, bottom=10pt,
+  fontupper=\sffamily
+]
+\centering
+\textbf{Hackathon AI Paris 2026}\\[0.4cm]
+\small Détection en temps réel du blanchiment crypto\\
+et des attaques flashloan par intelligence artificielle.
+\end{tcolorbox}
+
+\vfill
+{\sffamily\color{kvgrey}\small Avril 2026 \quad\textbar\quad Version 1.0 \quad\textbar\quad \texttt{kover.ia}}
+\end{titlepage}
+
+\renewcommand{\contentsname}{Table des matières}
+{\sffamily\tableofcontents}
+\thispagestyle{fancy}
+\newpage
+
+% ===========================================================================
+\section{Problématique : quel problème règle-t-on ?}
+
+\subsection{Un secteur DeFi structurellement vulnérable}
+
+La finance décentralisée (DeFi) gère aujourd'hui plus de
+\textbf{120~milliards de dollars} de valeur verrouillée à travers des
+protocoles ouverts opérant 24~heures sur~24 sur des blockchains
+publiques. En 2024, selon Chainalysis, plus de
+\textbf{2,2~milliards de dollars} ont été volés sur des protocoles
+DeFi --- une augmentation de 21~\% par rapport à 2023. À ces vols
+directs s'ajoute un phénomène encore plus coûteux pour l'écosystème~:
+le \textbf{blanchiment des fonds dérobés}, qui se déroule en quelques
+minutes via des mixeurs, des bridges cross-chain et des plateformes
+d'échange centralisées peu régulées.
+
+\subsection{Le problème central : la vélocité}
+
+Le blanchiment crypto suit un patron stéréotypé observé sur tous les
+hacks majeurs récents (Euler Finance, Ronin Bridge, Wormhole,
+Curve Finance)~:
+
+\begin{enumerate}
+  \item \textbf{Splitting} : éclatement sur 4 à 12 wallets en moins de
+        deux minutes.
+  \item \textbf{Mixing} : 5 à 20 transactions intermédiaires via
+        Tornado Cash, Railgun ou des wallets jetables.
+  \item \textbf{Bridging} : transit cross-chain (BSC, Polygon, Arbitrum)
+        via Wormhole, Stargate, Synapse.
+  \item \textbf{Off-ramp} : dépôt sur un CEX peu régulé pour conversion
+        en monnaie fiat.
+\end{enumerate}
+
+L'ensemble de cette séquence se déroule en
+\textbf{15 à 90 minutes}. Aucune équipe humaine, même expérimentée, ne
+peut suivre ce rythme. Lorsqu'un analyste ouvre l'investigation, les
+fonds sont déjà dans un mixeur ou sur un bridge, et la traçabilité
+on-chain devient exponentiellement plus coûteuse.
+
+\subsection{Une seconde menace : les flashloan attacks}
+
+En parallèle du blanchiment post-vol, les protocoles DeFi sont la cible
+d'\textbf{attaques par flashloan}~: emprunt non collatéralisé d'une
+somme massive, manipulation d'un oracle ou d'un pool de liquidité, et
+remboursement dans la même transaction. Tout se joue dans le mempool
+public, en quelques centaines de millisecondes avant le minage du bloc.
+Là encore, aucun outil grand public ne couvre la fenêtre d'interception.
+
+\begin{quote_kv}
+Le problème central que nous adressons est donc double~: un problème de
+\textbf{détection} (voir le blanchiment ou l'attaque émerger en temps
+réel) et un problème de \textbf{décision} (produire une recommandation
+actionnable assez vite pour qu'elle soit utile).
+\end{quote_kv}
+
+% ===========================================================================
+\section{Limites des solutions actuelles sur le marché}
+
+Les solutions de surveillance AML on-chain existantes
+(Chainalysis Reactor, TRM Labs, Elliptic Lens, Forta) sont
+historiquement bâties sur trois piliers~:
+
+\begin{itemize}
+  \item \textbf{Listes d'adresses étiquetées}, maintenues manuellement
+        par des équipes d'analystes (sanctions OFAC, mixeurs connus,
+        wallets de hackers).
+  \item \textbf{Heuristiques de propagation} fondées sur des règles
+        métier déterministes (nombre de \emph{hops}, montants,
+        fréquence).
+  \item \textbf{Tableaux de bord d'investigation} optimisés pour
+        l'analyse rétrospective, sur des fenêtres de jours ou semaines.
+\end{itemize}
+
+\subsection{Quatre limites structurelles}
+
+\subsubsection{1. Une approche rétrospective, pas prédictive}
+
+Ces outils \emph{étiquettent} après les faits. Ils ne modélisent pas
+le graphe de transactions comme un système dynamique et ne prédisent
+jamais la prochaine étape probable d'un flux suspect.
+
+\subsubsection{2. Aucune représentation latente apprise}
+
+Les wallets sont définis par des \emph{labels} manuels. Un wallet
+inconnu mais structurellement suspect (proche topologiquement de
+mixeurs) ne sera jamais signalé tant qu'un analyste ne l'aura pas
+classé.
+
+\subsubsection{3. Une latence en minutes, pas en secondes}
+
+Les rapports Chainalysis se mesurent en heures, le scoring TRM en
+minutes. Cette latence rend la \textbf{réponse opérationnelle}
+impossible~: les fonds sont déjà loin.
+
+\subsubsection{4. Black-box non auditable}
+
+Les décisions algorithmiques sont opaques. Avec MiCA et l'AMLR-2024,
+les régulateurs européens exigent désormais une traçabilité
+algorithmique vérifiable que les acteurs en place ne fournissent qu'au
+prix d'audits externes coûteux.
+
+\begin{insight}
+\textbf{Le vide à combler.} Il n'existe \emph{aucun} produit grand
+public combinant représentations apprises sur graphe, prédiction
+séquentielle de la trajectoire des fonds, narratif LLM exploitable,
+et provenance cryptographique vérifiable --- en moins de cinq secondes.
+\end{insight}
+
+% ===========================================================================
+\section{Notre solution : KOVER.IA}
+
+\subsection{Philosophie produit}
+
+\textsc{KOVER.IA} est un \textbf{capteur prédictif temps réel} qui
+observe le flux de transactions Ethereum, modélise le graphe émergent,
+prédit la trajectoire des fonds suspects, et produit un rapport
+d'incident en moins de cinq secondes. La solution combine deux modules
+synergiques~:
+
+\begin{itemize}
+  \item \textbf{Module AML} : détection et prédiction du blanchiment
+        sur le graphe des transactions confirmées.
+  \item \textbf{Module BFD} (\emph{Behavioral Flow Detection}) :
+        sentinel mempool spécialisé dans l'interception des flashloan
+        attacks avant minage.
+\end{itemize}
+
+\subsection{Ce que nous délivrons concrètement}
+
+\begin{enumerate}
+  \item Un score de fraude par wallet, calculé toutes les 5~secondes
+        sur un graphe roulant.
+  \item Une prédiction de la prochaine destination probable
+        (Uniswap, Binance, Hyperliquid\ldots).
+  \item Un rapport d'incident en langage naturel, streamé
+        token-par-token, contenant un résumé exécutif, une analyse
+        technique et des actions recommandées.
+  \item Un \emph{halt} automatique en cas de flashloan critique
+        détectée dans le mempool.
+  \item Un manifest cryptographique signé HMAC-SHA256 prouvant la
+        chaîne de provenance de chaque inférence.
+\end{enumerate}
+
+% ===========================================================================
+\section{Architecture technique}
+
+\subsection{Pipeline multi-modèle orchestré}
+
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Modèle} & \textbf{Rôle} & \textbf{Fréquence} \\
+\midrule
+GAT (Graph Attention Network) &
+Score de fraude par wallet ; capte les dépendances structurelles
+du graphe (un wallet propre individuellement peut être condamné par
+ses voisins). &
+Toutes les 5~s \\
+\addlinespace
+LSTM séquentiel &
+Prédit la prochaine destination du flux à partir des cinq derniers
+wallets du chemin de propagation pondéré par le score GAT. &
+Toutes les 6~s \\
+\addlinespace
+Qwen~3 235B (Cerebras) &
+Génère un rapport d'incident structuré en streaming token-par-token. &
+Toutes les 30~s \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+Le pipeline ingère un flux Ethereum-like calibré sur le dataset
+\emph{Salam Ammari} (73~034 wallets, 71~250 transactions, ratio
+fraude $\approx$~3,7~\%). Un graphe roulant de 50 nœuds est maintenu
+en mémoire sur quatre tiers (source du hack, splitters, mixeurs,
+terminaux) --- topologie fidèle aux hacks observés.
+
+\subsection{Module Behavioral Flow Detection (BFD)}
+
+Le sentinel \texttt{kover-bfd-mev}~:
+
+\begin{itemize}
+  \item Pré-filtre des sélecteurs de méthodes (Aave, dYdX, Balancer,
+        Maker).
+  \item Simulation \texttt{eth\_call} pour évaluer la transaction sans
+        diffusion.
+  \item Verdict IA Cerebras (Qwen) classant la sévérité
+        (\emph{LOW / MEDIUM / CRITICAL}) et l'\emph{exploit class}.
+  \item Diffusion via Server-Sent Events vers un dashboard temps réel.
+\end{itemize}
+
+Performance mesurée~: \textbf{6,5~M événements/s}, latence bout-en-bout
+de l'ordre de la \textbf{dizaine de millisecondes}.
+
+\subsection{Provenance cryptographique}
+
+Chaque inférence est attachée à un manifest signé HMAC-SHA256 contenant
+l'empreinte SHA-256 des fichiers de poids, les métadonnées
+d'entraînement, la liste des inférences récentes avec latences. Un
+auditeur externe peut recalculer le HMAC et vérifier qu'aucune
+prédiction n'a été falsifiée.
+
+\subsection{Métriques de performance}
+
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Métrique} & \textbf{Détail} & \textbf{Valeur} \\
+\midrule
+GAT --- accuracy validation & 14k wallets test & \textbf{97,0~\%} \\
+GAT --- recall fraude & classe minoritaire & \textbf{94,0~\%} \\
+LSTM --- accuracy par classe & clean / Scam / Phish & 89 / 91 / 58~\% \\
+Cerebras --- débit & Qwen~3 235B streaming & 49~tokens/s \\
+Pipeline complet & cycle bout-en-bout & < 5~s \\
+Couverture tests & 80 tests pytest & 95--100~\% \\
+\bottomrule
+\end{tabularx}
+
+% ===========================================================================
+\section{Concurrence et positionnement}
+
+\subsection{Cartographie du marché}
+
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Acteur} & \textbf{Positionnement} & \textbf{Cible} \\
+\midrule
+Chainalysis & Compliance \& forensique & Banques, gouvernements \\
+TRM Labs & Risk scoring quasi temps réel & Exchanges, fintechs \\
+Elliptic & AML transaction monitoring & Institutions financières \\
+Forta Network & Détection on-chain décentralisée & Protocoles, DAO \\
+Hexagate / Hypernative & Détection d'attaques DeFi & Équipes sécurité protocoles \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Comparatif fonctionnel}
+
+\begin{tabularx}{\linewidth}{@{}lcccc@{}}
+\toprule
+& \textbf{Chainalysis} & \textbf{TRM} & \textbf{Forta} & \textbf{KOVER.IA} \\
+\midrule
+Score IA appris (GNN)            & \texttimes & \texttimes & partiel & \checkmark \\
+Prédiction destination (LSTM)    & \texttimes & \texttimes & \texttimes & \checkmark \\
+Rapport LLM streamé              & \texttimes & \texttimes & \texttimes & \checkmark \\
+Manifest crypto signé            & \texttimes & \texttimes & \texttimes & \checkmark \\
+Sentinel flashloan               & \texttimes & partiel    & \checkmark & \checkmark \\
+Latence médiane d'alerte         & minutes    & secondes   & secondes   & < 5~s \\
+Open source partiel              & \texttimes & \texttimes & partiel    & \checkmark \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Pourquoi nous : quatre axes différenciants}
+
+\subsubsection{1. La triple couche IA (graphe + séquence + langage)}
+
+Aucun concurrent ne combine aujourd'hui un GNN, un RNN séquentiel et un
+LLM en un pipeline temps réel orchestré. Chaque modèle existe
+isolément~; leur \emph{orchestration} est notre apport propriétaire.
+
+\subsubsection{2. Provenance cryptographique native}
+
+Le manifest signé HMAC répond directement à l'exigence MiCA / AMLR-2024
+de traçabilité algorithmique. Là où les concurrents répondent par audit
+externe, nous répondons par preuve vérifiable.
+
+\subsubsection{3. Latence sub-5~secondes bout-en-bout}
+
+Cette latence déplace le cas d'usage de l'\emph{investigation
+post-mortem} vers la \emph{réponse opérationnelle}. C'est un changement
+de catégorie produit, pas une amélioration incrémentale.
+
+\subsubsection{4. Surface d'intégration ouverte}
+
+WebSocket public + endpoint REST signé. N'importe quelle DAO, oracle ou
+multi-sig peut consommer nos verdicts sans contrat commercial préalable
+--- modèle natif crypto, contrairement aux SDK propriétaires des acteurs
+établis.
+
+% ===========================================================================
+\section{Coûts de production}
+
+Le \emph{COGS} d'une instance \textsc{Defend} en production est dominé
+par trois postes~:
+
+\begin{itemize}
+  \item \textbf{Inférence Cerebras} --- $\approx$ 7~\$/M tokens. Sur un
+        pattern 1 rapport/30~s, 250 tokens/rapport, 24$\times$7 :
+        $\approx$ 720~M tokens/an, soit \textbf{5~040~\$/an}.
+  \item \textbf{Hébergement backend} --- AWS m6a.large + Redis,
+        $\approx$ 80~\$/mois en prod, 3 zones DR :
+        \textbf{2~880~\$/an}.
+  \item \textbf{Données on-chain} --- QuickNode \emph{Build}
+        (mempool + archive) à 99~\$/mois, soit
+        \textbf{1~188~\$/an} par chaîne.
+\end{itemize}
+
+\medskip
+
+\textbf{COGS consolidé : $\approx$ 9~100~\$/an} pour un client
+\textsc{Defend} qui paie 144~k\$/an. Soit une \textbf{marge brute
+> 93~\%} --- typique d'un SaaS B2B deeptech, et qui finance la R\&D ML,
+l'expansion produit (Solana, Bitcoin) et le sales.
+
+% ===========================================================================
+\section{Comment on vend : à qui, pourquoi}
+
+\subsection{À qui : nos quatre segments cibles}
+
+\begin{tabularx}{\linewidth}{@{}lXl@{}}
+\toprule
+\textbf{Segment} & \textbf{Besoin principal} & \textbf{ARR cible} \\
+\midrule
+Protocoles DeFi (TVL > 100~M\$) & Surveillance flashloan + réponse auto & 60--250~k\$ \\
+Exchanges régulés (CEX) & Filtre AML temps réel sur dépôts entrants & 120--500~k\$ \\
+DAO de gouvernance & Alerte indépendante pour vote on-chain & 24--80~k\$ \\
+Régulateurs / TRACFIN & Capacité d'audit avec preuve crypto & 250~k\$+ \\
+\bottomrule
+\end{tabularx}
+
+\subsection{Pourquoi : la fenêtre d'opportunité}
+
+\begin{enumerate}
+  \item \textbf{Réglementaire} --- MiCA entre pleinement en vigueur fin
+        2026. Les protocoles DeFi opérant en Europe \emph{devront}
+        prouver leur conformité AML.
+  \item \textbf{Économique} --- une attaque flashloan moyenne coûte
+        25~M\$ au protocole victime. Notre offre \textsc{Guard} à
+        30~k\$/an représente 0,12~\% du coût d'un seul incident
+        évité.
+  \item \textbf{Technologique} --- la disponibilité de l'inférence
+        Cerebras (49 tok/s sur Qwen 235B) rend possible aujourd'hui
+        une orchestration impensable il y a 18~mois.
+\end{enumerate}
+
+\subsection{Stratégie commerciale : land \& expand}
+
+Trois plans SaaS, du gratuit au sur-devis~:
+
+\begin{tabularx}{\linewidth}{@{}lXll@{}}
+\toprule
+\textbf{Plan} & \textbf{Inclus} & \textbf{Tarif} & \textbf{Engagement} \\
+\midrule
+\textsc{Watch} &
+WebSocket public, scoring GAT, 50 alertes/jour. & 0 \$/mois & Aucun \\
+\addlinespace
+\textsc{Guard} &
+Pipeline complet, 5~000 alertes/jour, sentinel 1 chaîne, SLA 24~h. &
+2~500 \$/mois & 12 mois \\
+\addlinespace
+\textsc{Defend} &
+Quotas illimités, 5 chaînes, SLA 2~h, manifest persisté, fine-tuning. &
+12~000 \$/mois & 12--36 mois \\
+\addlinespace
+\textsc{Enterprise} &
+On-premise / VPC, audit OFAC, compliance MiCA, formations. &
+sur devis & 24--36 mois \\
+\bottomrule
+\end{tabularx}
+
+\medskip
+
+Le segment \emph{protocoles DeFi} est notre \textbf{point d'entrée
+prioritaire}~: sensibilité au risque maximale, budget sécurité existant
+(audits Trail of Bits, primes Immunefi), cycle de décision court (5--15
+personnes décisionnaires).
+
+\subsection{Go-to-market en trois temps}
+
+\begin{enumerate}
+  \item \textbf{Design partners} (mois 0--12) : 3 à 5 protocoles à
+        60~k\$/an, validation produit, témoignages.
+  \item \textbf{Inbound DAO + Forta marketplace} (mois 6--18) :
+        plan \textsc{Watch} gratuit pour génération de leads.
+  \item \textbf{Sales enterprise} (mois 12+) : équipe AE/SE pour
+        cycles CEX et régulateurs.
+\end{enumerate}
+
+% ===========================================================================
+\section{Pourquoi nous : crédibilité du projet livré}
+
+\textsc{KOVER.IA} n'est pas un slide-deck~: le projet livré au
+Hackathon AI Paris~2026 est \textbf{pleinement fonctionnel}.
+
+\begin{itemize}
+  \item \textbf{Modèles entraînés} sur données Ethereum réelles (dataset
+        Salam Ammari), avec accuracy validation 97~\% sur le GAT.
+  \item \textbf{Pipeline orchestré} GAT + LSTM + LLM Cerebras, latence
+        bout-en-bout < 5~s.
+  \item \textbf{Sentinel flashloan} opérationnel sur le mempool
+        Ethereum, débit 6,5~M~ev/s.
+  \item \textbf{Manifest cryptographique} exposé publiquement,
+        vérifiable HMAC-SHA256.
+  \item \textbf{Qualité industrielle} : GitHub Actions, SonarCloud,
+        80 tests pytest, couverture 95--100~\% sur les modules
+        critiques.
+\end{itemize}
+
+\begin{quote_kv}
+La fenêtre d'opportunité est étroite. MiCA s'applique fin 2026, et les
+protocoles DeFi qui n'auront pas adopté un AML traçable et auditable
+seront mécaniquement exclus des marchés européens. \textsc{KOVER.IA}
+se positionne comme l'option \emph{native crypto} pour répondre à
+cette contrainte, là où Chainalysis et Elliptic restent ancrés dans un
+modèle de compliance bancaire hérité.
+\end{quote_kv}
+
+\begin{insight}
+\textbf{Synthèse.} Nous résolvons un problème réel (le blanchiment et
+les flashloans en temps réel), avec une approche techniquement inédite
+(triple couche IA + provenance crypto), pour une cible solvable
+(protocoles DeFi, CEX, DAO, régulateurs), sur une fenêtre
+réglementaire ouverte (MiCA), avec une marge SaaS structurelle (>~93~\%)
+et un produit déjà fonctionnel et auditable.
+\end{insight}
+
+\end{document}
