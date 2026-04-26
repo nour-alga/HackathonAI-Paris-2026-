@@ -98,3 +98,99 @@ class TestManifest:
         lstm = m["manifest"]["models"]["lstm"]
         assert "output_classes" in lstm
         assert "training_classes" in lstm  # les vraies classes du dataset
+
+
+class TestCountTorchParams:
+    def test_returns_zero_on_invalid_input(self):
+        assert proof._count_torch_params({"a": "not a tensor"}) == 0
+
+    def test_skips_non_tensor_values(self):
+        class FakeTensor:
+            def numel(self): return 42
+        sd = {"a": FakeTensor(), "b": "string-without-numel"}
+        assert proof._count_torch_params(sd) == 42
+
+    def test_handles_runtime_error(self):
+        class BadTensor:
+            def numel(self): raise RuntimeError("corrupt")
+        assert proof._count_torch_params({"a": BadTensor()}) == 0
+
+
+class TestFewShotCount:
+    def test_returns_zero_when_file_missing(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(proof, "ROOT", tmp_path)
+        assert proof._few_shot_count() == 0
+
+    def test_returns_zero_on_invalid_json(self, monkeypatch, tmp_path):
+        (tmp_path / "backend" / "agents").mkdir(parents=True)
+        (tmp_path / "backend" / "agents" / "few_shot_examples.json").write_text(
+            "not valid json {{{", encoding="utf-8"
+        )
+        monkeypatch.setattr(proof, "ROOT", tmp_path)
+        assert proof._few_shot_count() == 0
+
+    def test_returns_count_of_examples(self, monkeypatch, tmp_path):
+        import json as _json
+        (tmp_path / "backend" / "agents").mkdir(parents=True)
+        (tmp_path / "backend" / "agents" / "few_shot_examples.json").write_text(
+            _json.dumps({"examples": [{"x": 1}, {"x": 2}, {"x": 3}]}), encoding="utf-8"
+        )
+        monkeypatch.setattr(proof, "ROOT", tmp_path)
+        assert proof._few_shot_count() == 3
+
+
+class TestModelMetadataResilience:
+    def test_gat_metadata_works_when_torch_import_fails(self, monkeypatch):
+        import builtins
+        real_import = builtins.__import__
+        def fail_import(name, *args, **kwargs):
+            if name == "torch":
+                raise ImportError("torch not installed")
+            return real_import(name, *args, **kwargs)
+        monkeypatch.setattr(builtins, "__import__", fail_import)
+        md = proof._gat_metadata()
+        assert md["name"] == "FraudGAT"
+        assert "checkpoint_sha256" in md
+
+    def test_lstm_metadata_works_when_torch_import_fails(self, monkeypatch):
+        import builtins
+        real_import = builtins.__import__
+        def fail_import(name, *args, **kwargs):
+            if name == "torch":
+                raise ImportError("torch not installed")
+            return real_import(name, *args, **kwargs)
+        monkeypatch.setattr(builtins, "__import__", fail_import)
+        md = proof._lstm_metadata()
+        assert md["name"] == "PathLSTM"
+        assert md["output_classes"] == ["Uniswap", "Binance", "Hyperliquid"]
+
+    def test_gat_metadata_handles_missing_checkpoint(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(proof, "ROOT", tmp_path)
+        md = proof._gat_metadata()
+        assert md["checkpoint"] is None
+        assert md["checkpoint_sha256"] == ""
+        assert md["checkpoint_bytes"] == 0
+
+    def test_lstm_metadata_handles_missing_checkpoint(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(proof, "ROOT", tmp_path)
+        md = proof._lstm_metadata()
+        assert md["checkpoint"] is None
+        assert md["checkpoint_bytes"] == 0
+
+
+class TestCerebrasMetadata:
+    def test_uses_default_model_when_no_env(self, monkeypatch):
+        monkeypatch.delenv("CEREBRAS_FINE_TUNED_MODEL", raising=False)
+        md = proof._cerebras_metadata()
+        assert "qwen" in md["model_id"].lower()
+
+    def test_uses_fine_tuned_model_when_set(self, monkeypatch):
+        monkeypatch.setenv("CEREBRAS_FINE_TUNED_MODEL", "ft-custom-123")
+        md = proof._cerebras_metadata()
+        assert md["model_id"] == "ft-custom-123"
+
+    def test_api_key_presence_flag(self, monkeypatch):
+        monkeypatch.delenv("CEREBRAS_API_KEY", raising=False)
+        assert proof._cerebras_metadata()["api_key_present"] is False
+        monkeypatch.setenv("CEREBRAS_API_KEY", "sk-test")
+        assert proof._cerebras_metadata()["api_key_present"] is True

@@ -1,5 +1,5 @@
 """Tests du pipeline IA (run_pipeline_from_graph) avec agents mockés."""
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -103,3 +103,93 @@ class TestRunPipelineFromGraph:
                 edges=edges, seed_address="0xa", amount_eth=None,
             )
         assert captured["amount"] == pytest.approx(4.0)
+
+
+class TestEdgeCases:
+    @pytest.mark.asyncio
+    async def test_skips_edges_with_missing_endpoints(self):
+        nodes = [{"id": "0xa", "score": 0.9, "balance": 1.0, "hops": 0}]
+        edges = [
+            {"source": "", "target": "0xb", "amount": 1.0},
+            {"source": "0xa", "target": None, "amount": 0.5},
+            {"source": "0xa", "target": "0xc", "amount": 0.3},
+        ]
+        with patch.object(pipeline.manager, "broadcast", AsyncMock()), \
+             patch("backend.pipeline.run_agent_pipeline", AsyncMock(return_value={
+                "severity": "LOW", "summary": "", "narrative": "",
+                "path_prediction": {}, "graph_summary": {}, "tainted_wallets": [],
+             })):
+            result = await pipeline.run_pipeline_from_graph(
+                nodes=nodes, edges=edges, seed_address="0xa"
+            )
+        assert "severity" in result
+
+    @pytest.mark.asyncio
+    async def test_auto_creates_missing_nodes_for_edges(self):
+        edges = [{"source": "0xnewsrc", "target": "0xnewdst", "amount": 1.0}]
+        with patch.object(pipeline.manager, "broadcast", AsyncMock()), \
+             patch("backend.pipeline.run_agent_pipeline", AsyncMock(return_value={
+                "severity": "LOW", "summary": "", "narrative": "",
+                "path_prediction": {}, "graph_summary": {}, "tainted_wallets": [],
+             })):
+            result = await pipeline.run_pipeline_from_graph(
+                nodes=[], edges=edges, seed_address="0xnewsrc"
+            )
+        assert result["severity"] == "LOW"
+
+    @pytest.mark.asyncio
+    async def test_gat_override_handles_exception_gracefully(self):
+        nodes = [{"id": "0xa", "score": 0.5, "balance": 1.0, "hops": 0}]
+        import sys as _sys
+        bad_scorer = MagicMock()
+        bad_scorer.MODEL_PATH = MagicMock()
+        bad_scorer.MODEL_PATH.exists = MagicMock(return_value=True)
+        bad_scorer.score_nodes = MagicMock(side_effect=RuntimeError("torch broken"))
+        with patch.object(pipeline.manager, "broadcast", AsyncMock()), \
+             patch("backend.pipeline.run_agent_pipeline", AsyncMock(return_value={
+                "severity": "LOW", "summary": "", "narrative": "",
+                "path_prediction": {}, "graph_summary": {}, "tainted_wallets": [],
+             })), \
+             patch.dict(_sys.modules, {"gat_scorer": bad_scorer}):
+            result = await pipeline.run_pipeline_from_graph(
+                nodes=nodes, edges=[], seed_address="0xa"
+            )
+        assert result["severity"] == "LOW"
+
+    @pytest.mark.asyncio
+    async def test_run_pipeline_etherscan_branch_with_mocks(self):
+        """Couvre run_pipeline (la branche Etherscan) en mockant build_taint_graph."""
+        from backend.detection.taint_graph import TaintGraph
+
+        fake_graph = TaintGraph("0xhack", 100.0)
+        fake_graph._add_node("0xa", taint_raw=0.7, hops=1, amount_eth=10.0)
+        fake_graph.initialize_taint_scores()
+
+        async def fake_build(*args, **kwargs):
+            return fake_graph
+
+        async def fake_save(_):
+            return "ok"
+
+        async def fake_save_wallets(_):
+            return 0
+
+        with patch("backend.pipeline.build_taint_graph", fake_build), \
+             patch("backend.pipeline.save_incident", fake_save), \
+             patch("backend.pipeline.save_tainted_wallets", fake_save_wallets), \
+             patch.object(pipeline.manager, "broadcast", AsyncMock()), \
+             patch("backend.pipeline.run_agent_pipeline", AsyncMock(return_value={
+                "severity": "HIGH", "summary": "summary",
+                "narrative": "narrative",
+                "path_prediction": {"next_destination": "Binance"},
+                "graph_summary": {"tainted_count": 1},
+                "tainted_wallets": [],
+             })):
+            result = await pipeline.run_pipeline(
+                hack_address="0xhack",
+                amount_eth=100.0,
+                protocol_name="TestProtocol",
+                start_block=0,
+            )
+        assert result["severity"] == "HIGH"
+        assert "graph_summary" in result
