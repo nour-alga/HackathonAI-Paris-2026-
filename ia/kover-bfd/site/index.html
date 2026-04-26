@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>KOVER.IA — Behavioral Flow Detection</title>
+<meta name="description" content="Circuit-breaker temps réel pour smart contracts. Détection comportementale du drainage de liquidité par IA." />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<header class="nav">
+  <div class="container nav-row">
+    <a class="brand" href="#top">
+      <span class="logo-dot"></span> KOVER<span class="brand-dim">.IA</span>
+    </a>
+    <nav>
+      <a href="#stack">Stack</a>
+      <a href="#flow">Pipeline</a>
+      <a href="#services">Services</a>
+      <a href="#demo">Demo</a>
+    </nav>
+    <a class="cta cta-sm" href="#demo">Lancer la démo</a>
+  </div>
+</header>
+
+<main id="top">
+
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="badge">
+      <span class="dot"></span> LIVE — mempool sub-second monitoring
+    </div>
+    <h1>
+      Le <span class="grad">circuit-breaker</span> on-chain<br/>
+      qui coupe le drainage <em>avant</em> qu'il ne vide votre vault.
+    </h1>
+    <p class="lead">
+      KOVER.IA écoute le mempool en WebSocket, agrège le flux par fenêtre 1&nbsp;s
+      via Apache&nbsp;Flink, et fait scorer chaque pouls par un Isolation&nbsp;Forest.
+      Anomalie + volume destructeur → <code>emergencyHalt()</code> broadcasté
+      avec front-running défensif EIP-1559.
+    </p>
+    <div class="hero-cta">
+      <a class="cta" href="#demo">Voir la démo →</a>
+      <a class="ghost" href="#flow">Architecture</a>
+    </div>
+    <ul class="kpis">
+      <li><strong>&lt; 250 ms</strong><span>budget bout-en-bout</span></li>
+      <li><strong>1 s</strong><span>tumbling window</span></li>
+      <li><strong>+50 %</strong><span>priority-fee bump</span></li>
+      <li><strong>4 µ-services</strong><span>découplés Kafka</span></li>
+    </ul>
+  </div>
+</section>
+
+<section id="stack" class="section">
+  <div class="container">
+    <h2>Stack de production</h2>
+    <p class="muted">Chaque brique est choisie pour son débit, sa latence ou sa rigueur de typage.</p>
+    <div class="grid stack">
+      <div class="card"><h3>Solidity 0.8.20</h3><p>Vault Pausable + Ownable, halt restreint au bot, errors custom gas-cheap.</p></div>
+      <div class="card"><h3>Node.js + ethers v6</h3><p>WSS mempool, backoff exponentiel, kafkajs idempotent, BigInt-safe.</p></div>
+      <div class="card"><h3>Apache Kafka</h3><p>Bus à haut débit, compression LZ4, partitionné par <code>from</code>.</p></div>
+      <div class="card"><h3>PyFlink 1.18</h3><p>Tumbling event-time window, watermark borné 500 ms, sink HTTP async.</p></div>
+      <div class="card"><h3>FastAPI + scikit-learn</h3><p>IsolationForest joblib, Pydantic v2, scoring &lt; 5 ms.</p></div>
+      <div class="card"><h3>web3.py 7</h3><p>EIP-1559 type-2, fees aggressifs, cooldown anti-replay 30 s.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="flow" class="section dim">
+  <div class="container">
+    <h2>Le pipeline en un coup d'œil</h2>
+    <p class="muted">Ingestion → Broker → Stream Processing → Inference → Action.</p>
+
+    <div class="pipeline">
+      <div class="stage">
+        <span class="stage-num">01</span>
+        <h4>Mempool WSS</h4>
+        <p>Erigon / Alchemy — événement <code>pending</code></p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <span class="stage-num">02</span>
+        <h4>Ingester Node.js</h4>
+        <p>Filtre <code>TARGET_CONTRACT</code>, produit Kafka</p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <span class="stage-num">03</span>
+        <h4>Flink 1 s</h4>
+        <p>Σ <code>volume</code>, Σ <code>tx_count</code></p>
+      </div>
+      <div class="arrow">→</div>
+      <div class="stage">
+        <span class="stage-num">04</span>
+        <h4>Isolation Forest</h4>
+        <p>Score &lt; seuil ? <code>emergencyHalt()</code></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="services" class="section">
+  <div class="container">
+    <h2>Les 4 micro-services</h2>
+    <div class="grid services">
+
+      <article class="card svc">
+        <header><span class="tag">Solidity</span><h3>VaultClient.sol</h3></header>
+        <pre><code>function emergencyHalt() external onlySecurityBot {
+    _pause();
+    emit CircuitBreakerTriggered(tx.origin, block.timestamp);
+}</code></pre>
+        <ul>
+          <li>Pausable + Ownable + ReentrancyGuard</li>
+          <li>Rotation HSM via <code>rotateSecurityBot</code></li>
+          <li>Errors custom (gas-cheap)</li>
+        </ul>
+      </article>
+
+      <article class="card svc">
+        <header><span class="tag">Node.js</span><h3>mempool_streamer.js</h3></header>
+        <pre><code>provider.on('pending', async (txHash) =&gt; {
+  const tx = await provider.getTransaction(txHash);
+  if (tx?.to?.toLowerCase() !== TARGET_LC) return;
+  producer.send({ topic, messages: [{ value: serialize(tx) }] });
+});</code></pre>
+        <ul>
+          <li>Backoff exponentiel + jitter (cap 30 s)</li>
+          <li>Watchdog heartbeat 30 s</li>
+          <li>Logger Winston JSON, latence µs</li>
+        </ul>
+      </article>
+
+      <article class="card svc">
+        <header><span class="tag">PyFlink</span><h3>time_series_aggregator.py</h3></header>
+        <pre><code>parsed.key_by(lambda t: t[0]) \
+  .window(TumblingEventTimeWindows.of(Time.seconds(1))) \
+  .reduce(_SumReducer(), window_function=_EmitWindow())</code></pre>
+        <ul>
+          <li>Watermark bounded-out-of-orderness 500 ms</li>
+          <li>Sink HTTP async — sémaphore bornée 64</li>
+          <li>Validation Pydantic v2 à la frontière Kafka</li>
+        </ul>
+      </article>
+
+      <article class="card svc">
+        <header><span class="tag">FastAPI</span><h3>anomaly_detector.py</h3></header>
+        <pre><code>if score &lt; THRESHOLD and volume &gt;= DESTRUCTIVE_WEI:
+    tx_hash = halter.trigger()   # +50% priority fee, type-2</code></pre>
+        <ul>
+          <li>IsolationForest joblib, scoring &lt; 5 ms</li>
+          <li>EIP-1559 fees aggressifs, cooldown 30 s</li>
+          <li>Endpoint <code>/predict</code> + <code>/health</code></li>
+        </ul>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<section id="demo" class="section dim">
+  <div class="container demo-wrap">
+    <div>
+      <h2>Démo interactive</h2>
+      <p class="muted">Simule un pouls de marché. Le scoring tourne côté navigateur — même logique que le service FastAPI.</p>
+
+      <div class="demo-controls">
+        <label>
+          Volume / seconde (ETH)
+          <input id="vol" type="range" min="0" max="500" value="3" step="1" />
+          <output id="volOut">3 ETH</output>
+        </label>
+        <label>
+          Tx / seconde
+          <input id="tx" type="range" min="0" max="2000" value="20" step="1" />
+          <output id="txOut">20</output>
+        </label>
+        <button id="fire" class="cta">POST /predict</button>
+      </div>
+    </div>
+
+    <div class="terminal" id="term">
+      <div class="term-head"><span></span><span></span><span></span> kover@bfd ~ </div>
+      <pre id="termBody">// Bouge les sliders puis clique POST /predict
+// Anomalie déclenchée si score &lt; -0.15 ET volume ≥ 50 ETH/s</pre>
+    </div>
+  </div>
+</section>
+
+<section class="section cta-band">
+  <div class="container cta-inner">
+    <div>
+      <h2>Prêt à câbler ton vault ?</h2>
+      <p class="muted">Le code complet des 4 services est déjà dans le repo.</p>
+    </div>
+    <div class="cta-row">
+      <a class="cta" href="../README.md">Voir le README</a>
+      <a class="ghost" href="../contracts/VaultClient.sol">Lire le contrat</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container foot">
+    <span>© 2026 KOVER.IA — Behavioral Flow Detection</span>
+    <span class="muted">Built for sub-second on-chain defense</span>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

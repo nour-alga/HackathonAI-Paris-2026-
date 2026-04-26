@@ -126,7 +126,7 @@ async def ai_proof_endpoint():
 import subprocess
 from pathlib import Path
 
-_FLASHLOAN_DIR = Path(__file__).resolve().parent.parent.parent / "ia" / "kover-bfd-mev"
+_FLASHLOAN_DIR = Path(__file__).resolve().parent.parent / "ia" / "kover-bfd-mev"
 _FLASHLOAN_PORT = 8787
 _flashloan_proc: subprocess.Popen | None = None
 

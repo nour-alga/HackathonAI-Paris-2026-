@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>KOVER.IA — Behavioral Flow Detection</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo-dot"></span>
+      <span>KOVER<span class="brand-dim">.IA</span></span>
+      <span class="brand-tag">Behavioral Flow Detection</span>
+    </div>
+    <div class="status" id="status">
+      <span class="dot dot-off" id="conn-dot"></span>
+      <span id="conn-label">disconnected</span>
+    </div>
+  </header>
+
+  <section class="kpi-grid">
+    <div class="kpi"><span class="kpi-label">tx analyzed</span><span class="kpi-value" id="kpi-tx">0</span></div>
+    <div class="kpi"><span class="kpi-label">candidates</span><span class="kpi-value" id="kpi-cand">0</span></div>
+    <div class="kpi"><span class="kpi-label">simulations</span><span class="kpi-value" id="kpi-sim">0</span></div>
+    <div class="kpi"><span class="kpi-label">true positives</span><span class="kpi-value danger" id="kpi-tp">0</span></div>
+    <div class="kpi"><span class="kpi-label">halts</span><span class="kpi-value danger" id="kpi-halt">0</span></div>
+    <div class="kpi"><span class="kpi-label">throughput</span><span class="kpi-value" id="kpi-tps">0 tx/s</span></div>
+    <div class="kpi" id="kpi-burst-card">
+      <span class="kpi-label">deep flow eps</span>
+      <span class="kpi-value" id="kpi-burst">—</span>
+    </div>
+    <div class="kpi" id="kpi-vs-solana-card">
+      <span class="kpi-label">vs solana mainnet</span>
+      <span class="kpi-value" id="kpi-vs-solana">—</span>
+    </div>
+    <div class="kpi" id="kpi-chains-card">
+      <span class="kpi-label">active chains</span>
+      <span class="kpi-value" id="kpi-chains">—</span>
+    </div>
+    <div class="kpi"><span class="kpi-label">uptime</span><span class="kpi-value" id="kpi-uptime">0s</span></div>
+  </section>
+
+  <main class="layout">
+    <section class="feed-card">
+      <header class="feed-head">
+        <h2>Live event stream</h2>
+        <div class="feed-tools">
+          <label><input type="checkbox" id="filter-pending" checked> pending</label>
+          <label><input type="checkbox" id="filter-candidate" checked> candidate</label>
+          <label><input type="checkbox" id="filter-simulation" checked> simulation</label>
+          <label><input type="checkbox" id="filter-attack" checked> attack</label>
+          <label><input type="checkbox" id="filter-riposte" checked> riposte</label>
+          <label><input type="checkbox" id="filter-analysis" checked> analysis</label>
+          <button id="clear-feed">clear</button>
+        </div>
+      </header>
+      <div class="feed" id="feed" aria-live="polite"></div>
+    </section>
+
+    <aside class="side">
+      <section class="card incident-card" id="incident-card" hidden>
+        <header><h2>⚠ Last incident</h2></header>
+        <dl id="incident-detail"></dl>
+      </section>
+
+      <section class="card analysis-card" id="analysis-card" hidden>
+        <header>
+          <h2>🧠 AI Threat Analyst</h2>
+          <span class="analysis-meta" id="analysis-meta"></span>
+        </header>
+        <div class="analysis-body">
+          <div class="analysis-row">
+            <span class="analysis-label">verdict</span>
+            <span id="analysis-verdict" class="analysis-badge"></span>
+          </div>
+          <div class="analysis-row">
+            <span class="analysis-label">severity</span>
+            <span id="analysis-severity" class="analysis-badge"></span>
+          </div>
+          <div class="analysis-row">
+            <span class="analysis-label">exploit class</span>
+            <code id="analysis-class"></code>
+          </div>
+          <div class="analysis-row">
+            <span class="analysis-label">confidence</span>
+            <span id="analysis-confidence"></span>
+          </div>
+          <h3 class="analysis-section">Summary</h3>
+          <p id="analysis-summary"></p>
+          <h3 class="analysis-section">Explanation</h3>
+          <p id="analysis-explanation"></p>
+          <h3 class="analysis-section">Recommended fix</h3>
+          <p id="analysis-fix"></p>
+        </div>
+      </section>
+
+      <section class="card legend-card">
+        <header><h2>Legend</h2></header>
+        <ul class="legend">
+          <li><span class="tag tag-pending">pending</span> any tx in mempool</li>
+          <li><span class="tag tag-candidate">candidate</span> pre-filter match</li>
+          <li><span class="tag tag-simulation">simulation</span> debug_traceCall ran</li>
+          <li><span class="tag tag-attack">attack</span> drain confirmed</li>
+          <li><span class="tag tag-riposte">riposte</span> halt broadcast</li>
+          <li><span class="tag tag-analysis">analysis</span> LLM verdict (Claude)</li>
+        </ul>
+      </section>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
