@@ -113,3 +113,123 @@ async def run_pipeline(
     await manager.broadcast("analysis_complete", full_result)
     print(f"[Pipeline] Terminé — sévérité : {severity}")
     return full_result
+
+
+async def run_pipeline_from_graph(
+    nodes: list[dict],
+    edges: list[dict],
+    seed_address: str | None = None,
+    amount_eth: float | None = None,
+    protocol_name: str = "Simulated Stream",
+) -> dict:
+    """
+    Variante du pipeline qui prend un graphe déjà construit (front simulation)
+    et skip totalement Etherscan. Réutilise TaintGraph + run_agent_pipeline.
+    """
+    from backend.detection.taint_graph import TaintGraph, TxEdge, KNOWN_ENTITIES
+
+    # Choix du seed : explicite, sinon node avec le plus gros score, sinon premier
+    seed = (seed_address or "").lower()
+    if not seed and nodes:
+        sorted_nodes = sorted(
+            nodes,
+            key=lambda n: float(n.get("score", n.get("taint_score", 0)) or 0),
+            reverse=True,
+        )
+        seed = str(sorted_nodes[0].get("id") or sorted_nodes[0].get("address", "")).lower()
+
+    total_in = amount_eth or sum(float(e.get("amount", e.get("amount_eth", 0)) or 0) for e in edges) or 1.0
+
+    await manager.broadcast("pipeline_status", {"step": "building_graph", "address": seed})
+
+    graph = TaintGraph(seed or "0x0", total_in)
+
+    for n in nodes:
+        addr = str(n.get("id") or n.get("address", "")).lower()
+        if not addr or addr == seed:
+            continue
+        score = float(n.get("score", n.get("taint_score", 0)) or 0)
+        amt = float(n.get("balance", n.get("amount_eth", 0)) or 0)
+        hops = int(n.get("hops", 1) or 1)
+        graph._add_node(addr, taint_raw=score, hops=hops, amount_eth=amt)
+
+    from datetime import datetime as _dt
+    for i, e in enumerate(edges):
+        src = str(e.get("source") or "").lower()
+        dst = str(e.get("target") or "").lower()
+        if not src or not dst:
+            continue
+        amt = float(e.get("amount", e.get("amount_eth", 0)) or 0)
+        if src not in graph.nodes:
+            graph._add_node(src, taint_raw=0.0, hops=1, amount_eth=0.0)
+        if dst not in graph.nodes:
+            graph._add_node(dst, taint_raw=0.0, hops=1, amount_eth=amt)
+        edge_obj = TxEdge(
+            tx_hash=str(e.get("tx_hash", f"sim_{i}")),
+            amount_eth=amt,
+            timestamp=_dt.utcnow(),
+            block_number=0,
+        )
+        parent_taint = graph.nodes[src].taint_raw or 1.0
+        graph.add_transaction(src, dst, edge_obj, parent_taint)
+
+    graph.initialize_taint_scores()
+
+    # Override des scores via le GAT entraîné (gat_model.pt) si dispo.
+    try:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _root = _Path(__file__).resolve().parent.parent
+        if str(_root) not in _sys.path:
+            _sys.path.insert(0, str(_root))
+        import gat_scorer  # type: ignore
+        if gat_scorer.MODEL_PATH.exists():
+            nodes_dict = {addr: {} for addr in graph.nodes}
+            simple_edges = [
+                {"source": u, "target": v, "amount_eth": d.get("amount_eth", 0)}
+                for u, v, d in graph.graph.edges(data=True)
+            ]
+            scores = gat_scorer.score_nodes(nodes_dict, simple_edges)
+            for addr, s in scores.items():
+                if addr in graph.nodes:
+                    graph.nodes[addr].taint_score = float(s)
+            print(f"[Pipeline/sim] GAT override : {len(scores)} scores")
+    except Exception as e:
+        print(f"[Pipeline/sim] GAT override skipped: {e}")
+
+    summary = graph.summary()
+
+    await manager.broadcast("graph_update", {
+        "nodes": [
+            {
+                "id": addr,
+                "taint_score": node.taint_score,
+                "entity_type": node.entity_type,
+                "hops": node.hops,
+                "amount_eth": node.amount_received_eth,
+            }
+            for addr, node in graph.nodes.items()
+        ],
+        "edges": [
+            {"source": u, "target": v, "amount_eth": d.get("amount_eth", 0)}
+            for u, v, d in graph.graph.edges(data=True)
+        ],
+    })
+
+    hack_context = {
+        "protocol": protocol_name,
+        "amount_eth": total_in,
+        "amount_usd": total_in * ETH_PRICE_USD,
+        "minutes_elapsed": 0,
+    }
+
+    result = await run_agent_pipeline(
+        graph=graph,
+        hack_context=hack_context,
+        broadcast_fn=manager.broadcast,
+    )
+
+    full_result = {**result, "graph_summary": summary}
+    await manager.broadcast("analysis_complete", full_result)
+    print(f"[Pipeline/sim] Terminé — sévérité : {result['severity']}")
+    return full_result

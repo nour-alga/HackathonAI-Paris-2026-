@@ -9,7 +9,7 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 
 from backend.websocket.manager import manager
-from backend.pipeline import run_pipeline
+from backend.pipeline import run_pipeline, run_pipeline_from_graph
 from backend.storage.bigquery_client import get_recent_incidents
 
 load_dotenv()
@@ -78,6 +78,90 @@ async def analyze_sync(req: AnalyzeRequest):
         req.start_block,
     )
     return result
+
+
+# ─── Analyse depuis graphe simulé (front) ────────────────────────────────────
+
+class AnalyzeGraphRequest(BaseModel):
+    nodes: list[dict]
+    edges: list[dict]
+    seed_address: str | None = None
+    amount_eth: float | None = None
+    protocol_name: str = "Simulated Stream"
+
+
+# ─── Flashloan dashboard launcher (kover-bfd-mev) ────────────────────────────
+
+import subprocess
+from pathlib import Path
+
+_FLASHLOAN_DIR = Path(__file__).resolve().parent.parent.parent / "ia" / "kover-bfd-mev"
+_FLASHLOAN_PORT = 8787
+_flashloan_proc: subprocess.Popen | None = None
+
+
+@app.post("/launch/flashloan")
+async def launch_flashloan():
+    """Lance (si pas déjà actif) le dashboard Node de kover-bfd-mev sur le port 8787."""
+    global _flashloan_proc
+
+    if _flashloan_proc is not None and _flashloan_proc.poll() is None:
+        return {"status": "already_running", "url": f"http://localhost:{_FLASHLOAN_PORT}"}
+
+    if not _FLASHLOAN_DIR.exists():
+        return {"status": "error", "message": f"{_FLASHLOAN_DIR} introuvable"}
+
+    import os as _os
+    log_path = _FLASHLOAN_DIR / "flashloan.log"
+    env = _os.environ.copy()
+    # Démo rapide : fire la première attaque après ~150 tx (~5s à 30tx/s),
+    # répète toutes les 200 tx. Pas besoin de QuickNode WSS.
+    env["DEMO_SYNTH_RATE"] = "30"
+    env["DEMO_INJECT_AFTER_TX"] = "150"
+    env["DEMO_INJECT_REPEAT_TX"] = "200"
+    env["DEMO_INJECT_FALLBACK_MS"] = "8000"
+
+    # Lance node directement (pas via npm) pour éviter les problèmes de wrapper
+    # cmd.exe / forking sur Windows. Redirige stdout/stderr vers un fichier log.
+    log_fh = open(log_path, "w", encoding="utf-8", errors="replace")
+    try:
+        _flashloan_proc = subprocess.Popen(
+            ["node", "src/start_demo.js"],
+            cwd=str(_FLASHLOAN_DIR),
+            env=env,
+            stdout=log_fh,
+            stderr=subprocess.STDOUT,
+            stdin=subprocess.DEVNULL,
+            shell=False,
+        )
+    except FileNotFoundError:
+        return {"status": "error", "message": "Node.js introuvable dans le PATH"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    except FileNotFoundError:
+        return {"status": "error", "message": "npm/Node.js introuvable dans le PATH"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+    return {"status": "started", "url": f"http://localhost:{_FLASHLOAN_PORT}", "pid": _flashloan_proc.pid}
+
+
+@app.post("/analyze/graph")
+async def analyze_graph(req: AnalyzeGraphRequest, background: BackgroundTasks):
+    """
+    Reçoit un graphe déjà construit côté front (simulation de flux de tx)
+    et lance le pipeline agent IA dessus. Skip Etherscan.
+    Résultats broadcastés via WebSocket.
+    """
+    background.add_task(
+        run_pipeline_from_graph,
+        req.nodes,
+        req.edges,
+        req.seed_address,
+        req.amount_eth,
+        req.protocol_name,
+    )
+    return {"status": "started", "nodes": len(req.nodes), "edges": len(req.edges)}
 
 
 # ─── Mode Replay (démo jury) ─────────────────────────────────────────────────

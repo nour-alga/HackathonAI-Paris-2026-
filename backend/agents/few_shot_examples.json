@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "n_examples": 12,
+  "examples": [
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x4f6fa1c6...\n- To: 0x545f5e5c...\n- Value: 9.5000 ETH\n- Gas Price: 45.00 Gwei\n- Input Data: No\n- Destination Category: Phishing\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "FRAUD"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x271d6cdd...\n- To: 0xef57aa4b...\n- Value: 0.4500 ETH\n- Gas Price: 32.00 Gwei\n- Input Data: No\n- Destination Category: Scamming\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "FRAUD"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0xe9ba00cb...\n- To: 0xef57aa4b...\n- Value: 4.9900 ETH\n- Gas Price: 21.00 Gwei\n- Input Data: No\n- Destination Category: Scamming\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "FRAUD"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x93c40945...\n- To: 0x3853ba76...\n- Value: 0.3400 ETH\n- Gas Price: 21.00 Gwei\n- Input Data: No\n- Destination Category: Phishing\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "FRAUD"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x304cc179...\n- To: 0x98aabdba...\n- Value: 0.0075 ETH\n- Destination Category: null\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "CLEAN"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x267be1c1...\n- To: 0x0396220b...\n- Value: 0.3330 ETH\n- Destination Category: null\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "CLEAN"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x304cc179...\n- To: 0xab8c58a3...\n- Value: 0.0075 ETH\n- Destination Category: null\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "CLEAN"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x0681d8db...\n- To: 0x75dbe6e2...\n- Value: 3.2100 ETH\n- Gas Price: 100.00 Gwei\n- Input Data: No\n- Destination Category: Phishing\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "FRAUD"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x304cc179...\n- To: 0xcbabf754...\n- Value: 0.0075 ETH\n- Destination Category: null\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "CLEAN"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x304cc179...\n- To: 0xc9e132df...\n- Value: 0.0075 ETH\n- Destination Category: null\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "CLEAN"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x3f0f9aa8...\n- To: 0xef57aa4b...\n- Value: 0.7000 ETH\n- Gas Price: 21.00 Gwei\n- Input Data: No\n- Destination Category: Scamming\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "FRAUD"
+    },
+    {
+      "prompt": "Analyze this Ethereum transaction and classify if it's part of a fraudulent flow:\n\nTransaction Details:\n- From: 0x304cc179...\n- To: 0x974e3885...\n- Value: 0.0075 ETH\n- Destination Category: null\n\nClassify as:\n- FRAUD: Part of stolen funds flow\n- CLEAN: Legitimate transaction\n- UNKNOWN: Unclear\n\nYour answer (one word):",
+      "completion": "CLEAN"
+    }
+  ]
+}

@@ -37,23 +37,43 @@ def build_wallet_sequences(df, min_len=2, max_len=5):
             labels.append(ENTITY_TYPES.get(categories[i+1], 0))
     return sequences, labels
 
-def get_graph_features(address, graph):
+def get_graph_features(address, graph, cache: dict | None = None):
+    """Features par adresse. Si `cache` fourni, on prend pagerank/clustering en O(1)
+    au lieu de les recalculer sur tout le graphe à chaque appel (catastrophique en training)."""
     if address not in graph:
         return np.array([0.0]*8, dtype=np.float32)
     in_deg = min(graph.in_degree(address) / 100, 1.0) or 0
     out_deg = min(graph.out_degree(address) / 100, 1.0) or 0
     taint = graph.nodes[address].get('taint_score', 0.5)
-    try:
-        clustering = nx.local_clustering_coefficient(graph.to_undirected(), address)
-    except:
-        clustering = 0.0
-    try:
-        pagerank = min(nx.pagerank(graph).get(address, 0.001) * 1000, 1.0)
-    except:
-        pagerank = 0.001
+    if cache is not None:
+        clustering = cache["clustering"].get(address, 0.0)
+        pagerank = min(cache["pagerank"].get(address, 0.001) * 1000, 1.0)
+    else:
+        try:
+            clustering = nx.local_clustering_coefficient(graph.to_undirected(), address)
+        except Exception:
+            clustering = 0.0
+        try:
+            pagerank = min(nx.pagerank(graph).get(address, 0.001) * 1000, 1.0)
+        except Exception:
+            pagerank = 0.001
     is_mixer = 1.0 if 'tornado' in str(address).lower() else 0.0
     is_bridge = 1.0 if 'bridge' in str(address).lower() else 0.0
     return np.array([in_deg, out_deg, taint, clustering, pagerank, is_mixer, is_bridge, 0.0], dtype=np.float32)
+
+
+def _build_feature_cache(graph: "nx.DiGraph") -> dict:
+    print("[PathLSTM] Pre-computing pagerank...")
+    try:
+        pr = nx.pagerank(graph, max_iter=50, tol=1e-4)
+    except Exception:
+        pr = {}
+    print("[PathLSTM] Pre-computing clustering...")
+    try:
+        cl = nx.clustering(graph.to_undirected())
+    except Exception:
+        cl = {}
+    return {"pagerank": pr, "clustering": cl}
 
 def train_path_lstm(dataset='salam_ammari_dataset/Dataset/Dataset.csv', model_path='backend/models/path_lstm.pt', epochs=8, batch_size=32):
     print("[PathLSTM] Loading dataset...")
@@ -72,11 +92,12 @@ def train_path_lstm(dataset='salam_ammari_dataset/Dataset/Dataset.csv', model_pa
         if row['to_address'] not in G.nodes:
             G.nodes[row['to_address']]['taint_score'] = float(row['to_scam'])
     print(f"[PathLSTM] Graph: {G.number_of_nodes()} wallets, {G.number_of_edges()} edges")
+    cache = _build_feature_cache(G)
     print("[PathLSTM] Converting to tensors...")
     X, y = [], []
     for seq, _, cat in sequences:
         seq = seq[-5:] if len(seq) > 5 else seq + [seq[-1]]*(5-len(seq))
-        feats = [get_graph_features(a, G) for a in seq]
+        feats = [get_graph_features(a, G, cache) for a in seq]
         X.append(np.array(feats))
         y.append(ENTITY_TYPES.get(cat, 0))
     X, y = np.array(X, dtype=np.float32), np.array(y, dtype=np.int64)

@@ -1,14 +1,24 @@
-"""Google BigQuery client pour la persistence des incidents et wallets taintés."""
+"""Google BigQuery client pour la persistence des incidents et wallets taintés.
+
+NOTE: BigQuery est optionnel pour la démo. Si `google.cloud.bigquery` n'est pas
+installé, on bascule en mode no-op (les données ne sont pas persistées mais le
+pipeline continue).
+"""
 import os
 from datetime import datetime
 from typing import Optional
 
-from google.cloud import bigquery
+try:
+    from google.cloud import bigquery  # type: ignore
+    _BQ_AVAILABLE = True
+except Exception:
+    bigquery = None  # type: ignore
+    _BQ_AVAILABLE = False
 
 from backend.storage.models import TaintedWallet, IncidentAlert
 
 # Client BigQuery (authentifié via GOOGLE_APPLICATION_CREDENTIALS)
-_client: Optional[bigquery.Client] = None
+_client: Optional["bigquery.Client"] = None  # type: ignore
 
 PROJECT_ID = os.getenv("GCP_PROJECT_ID", "")
 DATASET_ID = os.getenv("BIGQUERY_DATASET", "kover_ia")
@@ -18,7 +28,7 @@ INCIDENTS_TABLE = f"{PROJECT_ID}.{DATASET_ID}.incidents"
 TAINTED_WALLETS_TABLE = f"{PROJECT_ID}.{DATASET_ID}.tainted_wallets"
 
 
-def get_client() -> bigquery.Client:
+def get_client():
     """Retourne le client BigQuery singleton."""
     global _client
     if _client is None:
@@ -28,6 +38,8 @@ def get_client() -> bigquery.Client:
 
 async def save_incident(alert: IncidentAlert) -> str:
     """Sauvegarde un incident dans BigQuery. Retourne l'ID de la ligne."""
+    if not _BQ_AVAILABLE or not PROJECT_ID:
+        return alert.hack_tx_hash
     client = get_client()
 
     row = {
@@ -52,6 +64,8 @@ async def save_tainted_wallets(wallets: list[TaintedWallet]) -> int:
     """Sauvegarde une liste de wallets taintés. Retourne le count."""
     if not wallets:
         return 0
+    if not _BQ_AVAILABLE or not PROJECT_ID:
+        return len(wallets)
 
     client = get_client()
 
@@ -76,6 +90,8 @@ async def save_tainted_wallets(wallets: list[TaintedWallet]) -> int:
 
 async def get_recent_incidents(limit: int = 20) -> list[dict]:
     """Récupère les derniers incidents."""
+    if not _BQ_AVAILABLE or not PROJECT_ID:
+        return []
     client = get_client()
 
     query = f"""

@@ -14,7 +14,22 @@ dist/
 build/
 venv/
 .venv/
+.venv-train/
 env/
+
+# Frontend Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+*.tsbuildinfo
+
+# Logs
+*.log
+ia/kover-bfd-mev/flashloan.log
+
+# Datasets (lourds — télécharger manuellement)
+salam_ammari_dataset/Dataset/Dataset.csv
 
 # ML Models & Large Data (trop lourds pour git)
 *.pt
